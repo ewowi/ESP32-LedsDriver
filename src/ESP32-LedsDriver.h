@@ -14,7 +14,7 @@
 #undef TAG
 #define TAG "🐸"
 
-struct PinConfig { //default 256 LEDs on pin 2 (see channelsPerLed to get total Channels per pin)
+struct PinConfig { //default 256 LEDs on pin 2 (see channelsPerLed to get total channels per pin)
     uint8_t gpio = 2;
     uint16_t nrOfLeds = 256;
 };

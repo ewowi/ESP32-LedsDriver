@@ -14,8 +14,8 @@
 #include "ESP32-LedsDriver.h"
 
 #define NUM_PINS 10
-#define NUM_LEDSPERPIN 400
-#define CHANNELS_PER_LED 3 // 4096 leds with 3 channels (RGB) or 3072 RGBW leds etc...
+#define NUM_LEDSPERPIN 256
+#define CHANNELS_PER_LED 3
 
 ESP32LedsDriver ledsDriver;
 PinConfig pinConfig[NUM_PINS];
@@ -29,7 +29,7 @@ void setup() {
     pinConfig[pin].nrOfLeds = NUM_LEDSPERPIN;
   }
 
-  ledsDriver.initLeds(leds, pinConfig, NUM_PINS, CHANNELS_PER_LED, 1, 0, 2);
+  ledsDriver.initLeds(leds, pinConfig, NUM_PINS, CHANNELS_PER_LED, 1, 0, 2); //102 is RGB
 }
 
 void loop() {
