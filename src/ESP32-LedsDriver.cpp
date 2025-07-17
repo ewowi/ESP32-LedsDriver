@@ -1,6 +1,6 @@
 /**
     @title     ESP32-LedsDriver
-    @file      main.cpp
+    @file      ESP32-LedsDriver.cpp
     @repo      https://github.com/ewowi/ESP32-LedsDriver, submit changes to this file as PRs
     @Authors   https://github.com/ewowi/ESP32-LedsDriver/commits/main
             https://moonmodules.org/ewowi/ESP32-LedsDriver/overview/
@@ -9,26 +9,13 @@
     @license   For non GPL-v3 usage, commercial licenses must be purchased. Contact moonmodules@icloud.com
 **/
 
-#include <Arduino.h>
-
 #include "ESP32-LedsDriver.h"
 
-#define NUM_LEDS 1024
-#define NUM_PINS 10
+void ESP32LedsDriver::initLeds(uint8_t *leds, uint8_t *pins, uint16_t *lengths,  size_t num_pins, ColorArrangment colorArrangement) {
+    ESP_LOGD(TAG, "");
 
-ESP32LedsDriver ledsDriver;
-uint8_t leds[3*NUM_LEDS];
-
-void setup() {
-  uint8_t pins[NUM_PINS] = {22, 21, 14, 18, 5, 4, 2, 15, 13, 12};
-  uint16_t ledsPerPin[NUM_PINS] = {400, 400, 400, 400, 400, 400, 400, 400, 400, 400};
-
-  ledsDriver.initLeds(leds, pins, ledsPerPin, NUM_PINS, ORDER_GRB);
 }
 
-void loop() {
-  for (size_t i=0; i<3*NUM_LEDS; i++) leds[i] = random(255);
+void ESP32LedsDriver::show() {
 
-  ledsDriver.show();
 }
-

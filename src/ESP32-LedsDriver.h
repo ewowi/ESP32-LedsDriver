@@ -1,6 +1,6 @@
 /**
     @title     ESP32-LedsDriver
-    @file      main.cpp
+    @file      ESP32-LedsDriver.h
     @repo      https://github.com/ewowi/ESP32-LedsDriver, submit changes to this file as PRs
     @Authors   https://github.com/ewowi/ESP32-LedsDriver/commits/main
             https://moonmodules.org/ewowi/ESP32-LedsDriver/overview/
@@ -11,24 +11,25 @@
 
 #include <Arduino.h>
 
-#include "ESP32-LedsDriver.h"
+#undef TAG
+#define TAG "🐸"
 
-#define NUM_LEDS 1024
-#define NUM_PINS 10
+enum ColorArrangment
+{
+    ORDER_GRBW,
+    ORDER_RGB,
+    ORDER_RBG,
+    ORDER_GRB,
+    ORDER_GBR,
+    ORDER_BRG,
+    ORDER_BGR,
+};
 
-ESP32LedsDriver ledsDriver;
-uint8_t leds[3*NUM_LEDS];
+class ESP32LedsDriver {
+public:
+    //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
+    void initLeds(uint8_t *leds, uint8_t *pins, uint16_t *ledsPerPin,  size_t numPins, ColorArrangment colorArrangement);
 
-void setup() {
-  uint8_t pins[NUM_PINS] = {22, 21, 14, 18, 5, 4, 2, 15, 13, 12};
-  uint16_t ledsPerPin[NUM_PINS] = {400, 400, 400, 400, 400, 400, 400, 400, 400, 400};
-
-  ledsDriver.initLeds(leds, pins, ledsPerPin, NUM_PINS, ORDER_GRB);
-}
-
-void loop() {
-  for (size_t i=0; i<3*NUM_LEDS; i++) leds[i] = random(255);
-
-  ledsDriver.show();
-}
-
+    //sends leds array to physical LEDs
+    void show();
+};
