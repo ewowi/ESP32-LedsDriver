@@ -3,7 +3,7 @@
     @file      ESP32-LedsDriver.h
     @repo      https://github.com/ewowi/ESP32-LedsDriver, submit changes to this file as PRs
     @Authors   https://github.com/ewowi/ESP32-LedsDriver/commits/main
-            https://moonmodules.org/ewowi/ESP32-LedsDriver/overview/
+    @Doc       https://github.com/ewowi/ESP32-LedsDriver/
     @Copyright © 2025 Github ESP32-LedsDriver Commit Authors
     @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
     @license   For non GPL-v3 usage, commercial licenses must be purchased. Contact moonmodules@icloud.com
