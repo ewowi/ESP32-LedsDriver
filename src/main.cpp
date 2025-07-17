@@ -15,20 +15,27 @@
 
 #define NUM_PINS 10
 #define NUM_LEDSPERPIN 400
+#define CHANNELS_PER_LED 3 // 4096 leds with 3 channels (RGB) or 3072 RGBW leds etc...
 
 ESP32LedsDriver ledsDriver;
-uint8_t leds[3 * NUM_LEDSPERPIN * NUM_PINS];
+PinConfig pinConfig[NUM_PINS];
+uint8_t leds[NUM_PINS * NUM_LEDSPERPIN * CHANNELS_PER_LED];
 
 void setup() {
-  uint8_t pins[NUM_PINS] = {22, 21, 14, 18, 5, 4, 2, 15, 13, 12};
-  uint16_t ledsPerPin[NUM_PINS];
-  for (size_t i = 0; i < NUM_PINS; i++) ledsPerPin[i] = NUM_LEDSPERPIN;
+  uint8_t gpio[NUM_PINS] = {22, 21, 14, 18, 5, 4, 2, 15, 13, 12};
 
-  ledsDriver.initLeds(leds, pins, ledsPerPin, NUM_PINS, ORDER_GRB);
+  for (size_t pin = 0; pin < NUM_PINS; pin++) {
+    pinConfig[pin].gpio = gpio[pin];
+    pinConfig[pin].nrOfLeds = NUM_LEDSPERPIN;
+  }
+
+  ledsDriver.initLeds(leds, pinConfig, NUM_PINS, CHANNELS_PER_LED, 1, 0, 2);
 }
 
 void loop() {
-  for (size_t i = 0; i < 3 * NUM_LEDSPERPIN * NUM_PINS; i++) leds[i] = random(255);
+  for (size_t ledNr = 0; ledNr < NUM_PINS * NUM_LEDSPERPIN; ledNr++) {
+    ledsDriver.setPixel(ledNr, random(255), random(255), random(255));
+  }
 
   ledsDriver.show();
 }

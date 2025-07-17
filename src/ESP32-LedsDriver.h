@@ -14,22 +14,28 @@
 #undef TAG
 #define TAG "🐸"
 
-enum ColorArrangment
-{
-    ORDER_GRBW,
-    ORDER_RGB,
-    ORDER_RBG,
-    ORDER_GRB,
-    ORDER_GBR,
-    ORDER_BRG,
-    ORDER_BGR,
+struct PinConfig { //default 256 LEDs on pin 2 (see channelsPerLed to get total Channels per pin)
+    uint8_t gpio = 2;
+    uint16_t nrOfLeds = 256;
 };
 
 class ESP32LedsDriver {
+private:
+    uint8_t *leds;
+    uint8_t channelsPerLed = 3;
+    uint8_t offsetRed = 1;
+    uint8_t offsetGreen = 0;
+    uint8_t offsetBlue = 2;
+    uint8_t offsetWhite = UINT8_MAX;
+
 public:
+
     //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
-    void initLeds(uint8_t *leds, uint8_t *pins, uint16_t *ledsPerPin,  size_t numPins, ColorArrangment colorArrangement);
+    void initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed = 3, uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
 
     //sends leds array to physical LEDs
     void show();
+
+    //sets RGB(W) values of a LED
+    void setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t blue, uint8_t white = UINT8_MAX);
 };
