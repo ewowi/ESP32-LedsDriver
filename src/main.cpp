@@ -29,7 +29,7 @@ void setup() {
     pinConfig[pin].nrOfLeds = NUM_LEDSPERPIN;
   }
 
-  ledsDriver.initLeds(leds, pinConfig, NUM_PINS, CHANNELS_PER_LED, 1, 0, 2); //102 is RGB
+  ledsDriver.initLeds(leds, pinConfig, NUM_PINS, CHANNELS_PER_LED, 1, 0, 2); //102 is GRB
 }
 
 void loop() {

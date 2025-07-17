@@ -31,7 +31,12 @@ private:
 public:
 
     //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
+    //color arrangements: supports RGB and RGBW but also exotic setups like LED Curtains where some have 6 channels per LEDS where only 3 channels are used.
     void initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed = 3, uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
+
+    void setBrightness(uint8_t brightness);
+
+    void setColorCorrection(uint8_t red, uint8_t green, uint8_t blue);
 
     //sends leds array to physical LEDs
     void show();
