@@ -13,7 +13,8 @@
 
 void ESP32LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed, uint8_t offsetRed, uint8_t offsetGreen, uint8_t offsetBlue, uint8_t offsetWhite) {
     this->leds = leds;
-    // to do: save pinConfig
+    this->pinConfig = pinConfig;
+    this->numPins = numPins;
     this->channelsPerLed = channelsPerLed;
     this->offsetRed = offsetRed;
     this->offsetGreen = offsetGreen;
@@ -23,6 +24,27 @@ void ESP32LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPi
     for (size_t pin = 0; pin < numPins; pin++)
         ESP_LOGD(TAG, "gpio:%d #:%d", pinConfig[pin].gpio, pinConfig[pin].nrOfLeds);
     ESP_LOGD(TAG, "#: %d r:%d g:%d b:%d w:%d", channelsPerLed, offsetRed, offsetGreen, offsetBlue, offsetWhite);
+
+    setPins(); //overridden in derived classes
+}
+
+void ESP32LedsDriver::setBrightness(uint8_t brightness)
+{
+    ESP_LOGD(TAG, "%d", brightness);
+    this->brightness = brightness;
+}
+
+void ESP32LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue)
+{
+    ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
+    this->correctionRed = red;
+    this->correctionGreen = green;
+    this->correctionBlue = blue;
+}
+
+void ESP32LedsDriver::setPins()
+{
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
 }
 
 void ESP32LedsDriver::show() {
