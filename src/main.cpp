@@ -14,7 +14,7 @@
 #include "ESP32-LedsDriver.h"
 
 #define CHANNELS_PER_LED 3
-#define Virtual 1
+#define Virtual 0
 
 #if Virtual == 0
   #define NUM_PINS 10

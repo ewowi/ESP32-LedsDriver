@@ -35,8 +35,7 @@ void PhysicalDriverESP32S3::setPins() {
 }
 
 void VirtualDriverESP32S3::setPins() {
-    for (int i = 0; i < numPins; i++)
-    {
+    for (int i = 0; i < numPins; i++) {
         esp_rom_gpio_connect_out_signal(pinConfig[i].gpio, signalsID[i], false, false);
         gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pinConfig[i].gpio], PIN_FUNC_GPIO);
         gpio_set_drive_capability((gpio_num_t)pinConfig[i].gpio, (gpio_drive_cap_t)3);
@@ -54,8 +53,7 @@ void VirtualDriverESP32S3::initDMABuffers() {
     initDMABuffersVirtual(); // for all Virtual drivers, used by non S3 and S3
 
     // S3 specific
-    for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
-    {
+    for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++) {
 
         DMABuffersTampon[buff_num]->next = DMABuffersTampon[buff_num + 1];
     }
@@ -79,15 +77,15 @@ LedDriverDMABuffer *VirtualDriverESP32S3::allocateDMABuffer(int bytes) {
     return b;
 }
 
-void VirtualDriverESP32S3::putdefaultones(uint16_t *buff) {
-    putdefaultonesVirtual(buff); // for all Virtual drivers, S3 and non S3
+void VirtualDriverESP32S3::putdefaultones(uint16_t *buffer) {
+    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and non S3
 
     //virtual S3 specific:
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
     // printf("mas%d\n",mas);
     for (int j = 0; j < 8 * channelsPerLed; j++) {
-        buff[0 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
-        buff[1 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+        buffer[0 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
+        buffer[1 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
     }
 }
 

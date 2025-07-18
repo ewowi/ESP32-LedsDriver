@@ -22,28 +22,25 @@
 #include "soc/gpio_struct.h"
 #include "rom/gpio.h"
 
-void LedsDriverESP32dev::setPinsDev()
-{
-    for (int i = 0; i < numPins; i++)
-    {
+void LedsDriverESP32dev::setPinsDev() {
+    for (int i = 0; i < numPins; i++) {
         PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[pinConfig[i].gpio], PIN_FUNC_GPIO);
         gpio_set_direction((gpio_num_t)pinConfig[i].gpio, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
         gpio_matrix_out(pinConfig[i].gpio, deviceBaseIndex[I2S_DEVICE] + i + 8, false, false);
     }
 }
 
-LedDriverDMABuffer *PhysicalDriverESP32dev::allocateDMABuffer(int bytes)
-{
+LedDriverDMABuffer *PhysicalDriverESP32dev::allocateDMABuffer(int bytes) {
     LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
-    if (!b)
-    {
+
+    if (!b) {
         ESP_LOGE(TAG, "No more memory\n");
         return NULL;
     }
 
     b->buffer = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_DMA);
-    if (!b->buffer)
-    {
+
+    if (!b->buffer) {
         ESP_LOGE(TAG, "No more memory\n");
         return NULL;
     }
@@ -62,8 +59,7 @@ LedDriverDMABuffer *PhysicalDriverESP32dev::allocateDMABuffer(int bytes)
     return b;
 }
 
-void PhysicalDriverESP32dev::setPins()
-{
+void PhysicalDriverESP32dev::setPins() {
     setPinsDev();
 }
 
@@ -104,8 +100,7 @@ void PhysicalDriverESP32dev::putdefaultones(uint16_t *buffer) {
     22:0
     23:D0
     */
-    for (int i = 0; i < channelsPerLed * 8 / 2; i++)
-    {
+    for (int i = 0; i < channelsPerLed * 8 / 2; i++) {
         buffer[i * 6 + 1] = 0xffff;
         buffer[i * 6 + 2] = 0xffff;
     }
@@ -141,17 +136,15 @@ LedDriverDMABuffer *VirtualDriverESP32dev::allocateDMABuffer(int bytes) {
     return b;
 }
 
-void VirtualDriverESP32dev::putdefaultones(uint16_t *buff)
-{
-    putdefaultonesVirtual(buff); // for all Virtual drivers, S3 and non S3
+void VirtualDriverESP32dev::putdefaultones(uint16_t *buffer) {
+    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and non S3
 
     //virtual dev specific: 
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
 
-    for (int j = 0; j < 8 * channelsPerLed; j++)
-    {
-        buff[1 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
-        buff[0 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+    for (int j = 0; j < 8 * channelsPerLed; j++) {
+        buffer[1 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
+        buffer[0 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
     }
 }
 

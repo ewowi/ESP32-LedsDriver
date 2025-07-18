@@ -93,74 +93,29 @@ class ESP32PhysicalDriver: virtual public ESP32LedsDriver { //abstract class !
 
 //specifics for Virtual Drivers!! (all boards)
 class ESP32VirtualDriver: virtual public ESP32LedsDriver { //abstract class !
-    protected:
-        uint8_t latchPin = 46; //46 for S3, 27 for ESP32 (wrover)
-        uint8_t clockPin = 3; //3 for S3, 26 for ESP32 (wrover)
-        uint16_t clockSpeed = 800; //🔥 only for virtual? to do, only clock_800KHZ, clock_1000KHZ, clock_1111KHZ, clock_1123KHZ
-        uint8_t dmaBuffer = 30;
-        uint8_t NUM_VIRT_PINS = 7;
-        uint8_t __NB_DMA_BUFFER = 20; //for S3, 16 for non s3?
-        uint8_t _DMA_EXTENSTION = 0;
-        LedDriverDMABuffer **DMABuffersTampon; //[__NB_DMA_BUFFER + 2];
+protected:
+    uint8_t latchPin = 46; //46 for S3, 27 for ESP32 (wrover)
+    uint8_t clockPin = 3; //3 for S3, 26 for ESP32 (wrover)
+    uint16_t clockSpeed = 800; //🔥 only for virtual? to do, only clock_800KHZ, clock_1000KHZ, clock_1111KHZ, clock_1123KHZ
+    uint8_t dmaBuffer = 30;
+    uint8_t NUM_VIRT_PINS = 7;
+    uint8_t __NB_DMA_BUFFER = 20; //for S3, 16 for non s3?
+    uint8_t _DMA_EXTENSTION = 0;
+    LedDriverDMABuffer **DMABuffersTampon; //[__NB_DMA_BUFFER + 2];
 
-        void initDMABuffersVirtual() {
-            DMABuffersTampon = (LedDriverDMABuffer **)heap_caps_malloc(sizeof(LedDriverDMABuffer *) * (__NB_DMA_BUFFER + 2), MALLOC_CAP_DMA);
+    void initDMABuffersVirtual();
 
-            for (int num_buff = 0; num_buff < __NB_DMA_BUFFER + 2; num_buff++) {
-                #ifdef CONFIG_IDF_TARGET_ESP32
-                    int WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE = ((NUM_VIRT_PINS + 1) * channelsPerLed * 8 * 3 * 2 + _DMA_EXTENSTION * 4);
-                #else
-                    int WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE = (576 * 2);
-                #endif
-                DMABuffersTampon[num_buff] = allocateDMABuffer(WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
-                // putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
-            } // the buffers for the
+    LedDriverDMABuffer *allocateDMABufferVirtual(int bytes);
 
-            for (int num_buff = 0; num_buff < __NB_DMA_BUFFER; num_buff++) {
-                putdefaultones((uint16_t *)DMABuffersTampon[num_buff]->buffer);
-            }
-        }
-
-        LedDriverDMABuffer *allocateDMABufferVirtual(int bytes) {
-            LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
-            if (!b)
-            {
-                ESP_LOGE(TAG, "No more memory\n");
-                return NULL;
-            }
-
-            b->buffer = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_DMA);
-            if (!b->buffer)
-            {
-                ESP_LOGE(TAG, "No more memory\n");
-                return NULL;
-            }
-            memset(b->buffer, 0, bytes);
-
-            return b;
-        }
-
-        void putdefaultonesVirtual(uint16_t *buff) {
-            uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
-            // printf("mas%d\n",mas);
-            for (int j = 0; j < 8 * channelsPerLed; j++)
-            {
-                buff[3 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
-                buff[2 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
-                buff[5 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
-                buff[4 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
-                buff[7 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
-                buff[6 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
-            }
-        }
-    public:
-        void setLatchAndClockPin(uint8_t latchPin, uint8_t clockPin) {
-            this->latchPin = latchPin;
-            this->clockPin = clockPin;
-        }
-        void setClockSpeed( uint16_t clockSpeed) {
-            this->clockSpeed = clockSpeed;
-        }
+    void putdefaultonesVirtual(uint16_t *buffer);
+public:
+    void setLatchAndClockPin(uint8_t latchPin, uint8_t clockPin) {
+        this->latchPin = latchPin;
+        this->clockPin = clockPin;
+    }
+    void setClockSpeed( uint16_t clockSpeed) {
+        this->clockSpeed = clockSpeed;
+    }
 };
 
 #ifdef CONFIG_IDF_TARGET_ESP32
@@ -178,7 +133,7 @@ class ESP32VirtualDriver: virtual public ESP32LedsDriver { //abstract class !
         void initDMABuffers() override; // allocateDMABuffer + putdefaultones
         LedDriverDMABuffer *DMABuffersTampon[4]; // an array of pointers!!!
         LedDriverDMABuffer *allocateDMABuffer(int bytes); //Phys dev specific
-        void putdefaultones(uint16_t *buff) override; //Phys dev specific
+        void putdefaultones(uint16_t *buffer) override; //Phys dev specific
     };
     //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and non S3)
     class VirtualDriverESP32dev: public LedsDriverESP32dev, public ESP32VirtualDriver {
@@ -189,7 +144,7 @@ class ESP32VirtualDriver: virtual public ESP32LedsDriver { //abstract class !
 
         void initDMABuffers() override; //initDMABuffersVirtual
         LedDriverDMABuffer *allocateDMABuffer(int bytes); //allocateDMABufferVirtual + dev specific
-        void putdefaultones(uint16_t *buff) override; // putdefaultonesVirtual + dev specific
+        void putdefaultones(uint16_t *buffer) override; // putdefaultonesVirtual + dev specific
     };
 #endif
 
@@ -210,7 +165,7 @@ class ESP32VirtualDriver: virtual public ESP32LedsDriver { //abstract class !
 
         void initDMABuffers() override; //initDMABuffersVirtual + S3 specifics
         LedDriverDMABuffer *allocateDMABuffer(int bytes); //allocateDMABufferVirtual + S3 specific
-        void putdefaultones(uint16_t *buff) override; //putdefaultonesVirtual + S3 specific
+        void putdefaultones(uint16_t *buffer) override; //putdefaultonesVirtual + S3 specific
     };
 
 #endif
