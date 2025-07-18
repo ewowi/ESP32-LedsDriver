@@ -50,4 +50,45 @@ void VirtualDriverESP32S3::setPins() {
     gpio_set_drive_capability((gpio_num_t)clockPin, (gpio_drive_cap_t)3);
 }
 
+void VirtualDriverESP32S3::initDMABuffers() {
+    initDMABuffersVirtual(); // for all Virtual drivers, used by non S3 and S3
+
+    // S3 specific
+    for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++)
+    {
+
+        DMABuffersTampon[buff_num]->next = DMABuffersTampon[buff_num + 1];
+    }
+
+    DMABuffersTampon[__NB_DMA_BUFFER - 1]->next = DMABuffersTampon[0];
+    DMABuffersTampon[__NB_DMA_BUFFER]->next = DMABuffersTampon[0];
+    // memset(DMABuffersTampon[__NB_DMA_BUFFER]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+    // memset(DMABuffersTampon[__NB_DMA_BUFFER+1]->buffer,0,WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+    DMABuffersTampon[__NB_DMA_BUFFER + 1]->next = NULL;
+    DMABuffersTampon[__NB_DMA_BUFFER]->dw0.suc_eof = 0;
+}
+
+LedDriverDMABuffer *VirtualDriverESP32S3::allocateDMABuffer(int bytes) {
+    LedDriverDMABuffer *b = allocateDMABufferVirtual(bytes);
+
+    //S3 specific
+    b->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+    b->dw0.size = bytes;
+    b->dw0.length = bytes;
+    b->dw0.suc_eof = 1;
+    return b;
+}
+
+void VirtualDriverESP32S3::putdefaultones(uint16_t *buff) {
+    putdefaultonesVirtual(buff); // for all Virtual drivers, S3 and non S3
+
+    //virtual S3 specific:
+    uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
+    // printf("mas%d\n",mas);
+    for (int j = 0; j < 8 * channelsPerLed; j++) {
+        buff[0 + j * (3 * (NUM_VIRT_PINS + 1))] = 0xFFFF;
+        buff[1 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+    }
+}
+
 #endif //CONFIG_IDF_TARGET_ESP32S3

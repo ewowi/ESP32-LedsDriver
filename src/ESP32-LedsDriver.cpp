@@ -25,25 +25,45 @@ void ESP32LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPi
         ESP_LOGD(TAG, "gpio:%d #:%d", pinConfig[pin].gpio, pinConfig[pin].nrOfLeds);
     ESP_LOGD(TAG, "#: %d r:%d g:%d b:%d w:%d", channelsPerLed, offsetRed, offsetGreen, offsetBlue, offsetWhite);
 
-    setPins(); //overridden in derived classes
+    //overridden in derived classes:
+    setPins();
+    i2sInit();
+    initDMABuffers();
 }
 
-void ESP32LedsDriver::setBrightness(uint8_t brightness)
-{
+void ESP32LedsDriver::setBrightness(uint8_t brightness) {
     ESP_LOGD(TAG, "%d", brightness);
     this->brightness = brightness;
 }
 
-void ESP32LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue)
-{
+void ESP32LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue) {
     ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
     this->correctionRed = red;
     this->correctionGreen = green;
     this->correctionBlue = blue;
 }
 
-void ESP32LedsDriver::setPins()
-{
+void ESP32LedsDriver::setPins() {
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
+}
+
+void ESP32LedsDriver::i2sInit() {
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
+    // i2sReset();
+    // i2sReset_DMA();
+    // i2sReset_FIFO();
+}
+
+void ESP32LedsDriver::initDMABuffers() {
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
+}
+
+LedDriverDMABuffer *ESP32LedsDriver::allocateDMABuffer(int bytes) {
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
+    return nullptr;
+}
+
+void ESP32LedsDriver::putdefaultones(uint16_t *buffer) {
     ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
 }
 

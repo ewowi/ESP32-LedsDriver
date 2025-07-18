@@ -26,6 +26,18 @@ struct PinConfig { //default 256 LEDs on pin 2 (see channelsPerLed to get total 
     uint16_t nrOfLeds = 256;
 };
 
+#ifdef CONFIG_IDF_TARGET_ESP32
+    #include "rom/lldesc.h"
+    struct LedDriverDMABuffer // the old style structure (not for S3 etc)
+    {
+        lldesc_t descriptor;
+        uint8_t *buffer;
+    };
+#else
+    #include "hal/dma_types.h"
+    typedef dma_descriptor_t LedDriverDMABuffer; // modern architectures.
+#endif
+
 class ESP32LedsDriver {
 protected:
     uint8_t *leds;
@@ -42,8 +54,14 @@ protected:
     uint8_t correctionGreen = UINT8_MAX;
     uint8_t correctionBlue = UINT8_MAX;
 
-    virtual void setPins(); //override in derived classes (or public to call again when pins change?)
+    //override in derived classes, called by initLeds
+    virtual void setPins(); // public to call again when pins change?
+    virtual void i2sInit();
+    virtual void initDMABuffers(); // general? Physical S3 doesn't seem to do anything with dma ...
 
+    // called by initDMABuffers
+    virtual LedDriverDMABuffer *allocateDMABuffer(int bytes);
+    virtual void putdefaultones(uint16_t *buffer);
 public:
 
     //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
@@ -69,17 +87,72 @@ public:
 // See also README for class structure
 
 //specifics for Physical Drivers!! (all boards)
-class ESP32PhysicalDriver { //abstract class !
+class ESP32PhysicalDriver: virtual public ESP32LedsDriver { //abstract class !
     // no specifics yet
 };
 
 //specifics for Virtual Drivers!! (all boards)
-class ESP32VirtualDriver { //abstract class !
+class ESP32VirtualDriver: virtual public ESP32LedsDriver { //abstract class !
     protected:
         uint8_t latchPin = 46; //46 for S3, 27 for ESP32 (wrover)
         uint8_t clockPin = 3; //3 for S3, 26 for ESP32 (wrover)
         uint16_t clockSpeed = 800; //🔥 only for virtual? to do, only clock_800KHZ, clock_1000KHZ, clock_1111KHZ, clock_1123KHZ
         uint8_t dmaBuffer = 30;
+        uint8_t NUM_VIRT_PINS = 7;
+        uint8_t __NB_DMA_BUFFER = 20; //for S3, 16 for non s3?
+        uint8_t _DMA_EXTENSTION = 0;
+        LedDriverDMABuffer **DMABuffersTampon; //[__NB_DMA_BUFFER + 2];
+
+        void initDMABuffersVirtual() {
+            DMABuffersTampon = (LedDriverDMABuffer **)heap_caps_malloc(sizeof(LedDriverDMABuffer *) * (__NB_DMA_BUFFER + 2), MALLOC_CAP_DMA);
+
+            for (int num_buff = 0; num_buff < __NB_DMA_BUFFER + 2; num_buff++) {
+                #ifdef CONFIG_IDF_TARGET_ESP32
+                    int WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE = ((NUM_VIRT_PINS + 1) * channelsPerLed * 8 * 3 * 2 + _DMA_EXTENSTION * 4);
+                #else
+                    int WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE = (576 * 2);
+                #endif
+                DMABuffersTampon[num_buff] = allocateDMABuffer(WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
+                // putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
+            } // the buffers for the
+
+            for (int num_buff = 0; num_buff < __NB_DMA_BUFFER; num_buff++) {
+                putdefaultones((uint16_t *)DMABuffersTampon[num_buff]->buffer);
+            }
+        }
+
+        LedDriverDMABuffer *allocateDMABufferVirtual(int bytes) {
+            LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
+            if (!b)
+            {
+                ESP_LOGE(TAG, "No more memory\n");
+                return NULL;
+            }
+
+            b->buffer = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_DMA);
+            if (!b->buffer)
+            {
+                ESP_LOGE(TAG, "No more memory\n");
+                return NULL;
+            }
+            memset(b->buffer, 0, bytes);
+
+            return b;
+        }
+
+        void putdefaultonesVirtual(uint16_t *buff) {
+            uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
+            // printf("mas%d\n",mas);
+            for (int j = 0; j < 8 * channelsPerLed; j++)
+            {
+                buff[3 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+                buff[2 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+                buff[5 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+                buff[4 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+                buff[7 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+                buff[6 + j * (3 * (NUM_VIRT_PINS + 1))] = mas;
+            }
+        }
     public:
         void setLatchAndClockPin(uint8_t latchPin, uint8_t clockPin) {
             this->latchPin = latchPin;
@@ -92,43 +165,59 @@ class ESP32VirtualDriver { //abstract class !
 
 #ifdef CONFIG_IDF_TARGET_ESP32
     //specific for ESP32 devices!! (Physical and Virtual)
-    class LedsDriverESP32dev: public ESP32LedsDriver { //abstract class !
+    class LedsDriverESP32dev: virtual public ESP32LedsDriver { //abstract class !
     protected:
         const int deviceBaseIndex[2] = {I2S0O_DATA_OUT0_IDX, I2S1O_DATA_OUT0_IDX};
-        void setPinsM();
+        void setPinsDev();
     };
 
+    //https://github.com/hpwit/I2SClocklessLedDriver
     class PhysicalDriverESP32dev: public LedsDriverESP32dev, public ESP32PhysicalDriver {
         void setPins() override;
+
+        void initDMABuffers() override; // allocateDMABuffer + putdefaultones
+        LedDriverDMABuffer *DMABuffersTampon[4]; // an array of pointers!!!
+        LedDriverDMABuffer *allocateDMABuffer(int bytes); //Phys dev specific
+        void putdefaultones(uint16_t *buff) override; //Phys dev specific
     };
+    //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and non S3)
     class VirtualDriverESP32dev: public LedsDriverESP32dev, public ESP32VirtualDriver {
     protected:
         const int deviceClockIndex[2] = {I2S0O_BCK_OUT_IDX, I2S1O_BCK_OUT_IDX};
 
         void setPins() override;
 
+        void initDMABuffers() override; //initDMABuffersVirtual
+        LedDriverDMABuffer *allocateDMABuffer(int bytes); //allocateDMABufferVirtual + dev specific
+        void putdefaultones(uint16_t *buff) override; // putdefaultonesVirtual + dev specific
     };
 #endif
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
     //specific for ESP32S3 devices!! (Physical and Virtual)
-    class LedsDriverESP32S3: public ESP32LedsDriver { //abstract class !
+    class LedsDriverESP32S3: virtual public ESP32LedsDriver { //abstract class !
     };
 
+    //https://github.com/hpwit/I2SClockLessLedDriveresp32s3 (or FastLED), will implement later!
     class PhysicalDriverESP32S3: public LedsDriverESP32S3, public ESP32PhysicalDriver {
         void setPins() override;
     };
+    //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and non S3)
     class VirtualDriverESP32S3: public LedsDriverESP32S3, public ESP32VirtualDriver {
         uint8_t signalsID[16] = {LCD_DATA_OUT0_IDX, LCD_DATA_OUT1_IDX, LCD_DATA_OUT2_IDX, LCD_DATA_OUT3_IDX, LCD_DATA_OUT4_IDX, LCD_DATA_OUT5_IDX, LCD_DATA_OUT6_IDX, LCD_DATA_OUT7_IDX, LCD_DATA_OUT8_IDX, LCD_DATA_OUT9_IDX, LCD_DATA_OUT10_IDX, LCD_DATA_OUT11_IDX, LCD_DATA_OUT12_IDX, LCD_DATA_OUT13_IDX, LCD_DATA_OUT14_IDX, LCD_DATA_OUT15_IDX};
         void setPins() override;
+
+        void initDMABuffers() override; //initDMABuffersVirtual + S3 specifics
+        LedDriverDMABuffer *allocateDMABuffer(int bytes); //allocateDMABufferVirtual + S3 specific
+        void putdefaultones(uint16_t *buff) override; //putdefaultonesVirtual + S3 specific
     };
 
 #endif
 
 #ifdef CONFIG_IDF_TARGET_ESP32P4
     //specific for ESP32P4 devices!! (Physical and Virtual)
-    class LedsDriverESP32P4: public ESP32LedsDriver { //abstract class !
+    class LedsDriverESP32P4: virtual public ESP32LedsDriver { //abstract class !
     };
 
     class PhysicalDriverESP32P4: public LedsDriverESP32P4, public ESP32PhysicalDriver {
