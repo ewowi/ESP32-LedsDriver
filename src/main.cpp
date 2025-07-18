@@ -56,7 +56,7 @@ void setup() {
       uint8_t gpio[NUM_PINS] = {9,10,12,8,18,17};
       ledsDriver.setLatchAndClockPin(46,3);
     #endif
-    ledsDriver.setClockSpeed(1000);
+    ledsDriver.setClockSpeed(clock_1000KHZ); // a bit of overclocking 🔥
   #endif
 
   for (size_t pin = 0; pin < NUM_PINS; pin++) {

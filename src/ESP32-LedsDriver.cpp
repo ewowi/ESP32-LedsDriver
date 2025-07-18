@@ -11,7 +11,7 @@
 
 #include "ESP32-LedsDriver.h"
 
-void ESP32LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed, uint8_t offsetRed, uint8_t offsetGreen, uint8_t offsetBlue, uint8_t offsetWhite) {
+void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed, uint8_t offsetRed, uint8_t offsetGreen, uint8_t offsetBlue, uint8_t offsetWhite) {
     this->leds = leds;
     this->pinConfig = pinConfig;
     this->numPins = numPins;
@@ -31,47 +31,51 @@ void ESP32LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPi
     initDMABuffers();
 }
 
-void ESP32LedsDriver::setBrightness(uint8_t brightness) {
+void LedsDriver::setBrightness(uint8_t brightness) {
     ESP_LOGD(TAG, "%d", brightness);
     this->brightness = brightness;
 }
 
-void ESP32LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue) {
+void LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue) {
     ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
     this->correctionRed = red;
     this->correctionGreen = green;
     this->correctionBlue = blue;
 }
 
-void ESP32LedsDriver::setPins() {
+void LedsDriver::setPins() {
     ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
 }
 
-void ESP32LedsDriver::i2sInit() {
+void LedsDriver::i2sInit() {
     ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
     // i2sReset();
     // i2sReset_DMA();
     // i2sReset_FIFO();
 }
 
-void ESP32LedsDriver::initDMABuffers() {
+void LedsDriver::initDMABuffers() {
     ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
 }
 
-LedDriverDMABuffer *ESP32LedsDriver::allocateDMABuffer(int bytes) {
+LedDriverDMABuffer *LedsDriver::allocateDMABuffer(int bytes) {
     ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
     return nullptr;
 }
 
-void ESP32LedsDriver::putdefaultones(uint16_t *buffer) {
+void LedsDriver::putdefaultlatch(uint16_t *buffer) {
     ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
 }
 
-void ESP32LedsDriver::show() {
+void LedsDriver::putdefaultones(uint16_t *buffer) {
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
+}
+
+void LedsDriver::show() {
     // to do
 }
 
-void ESP32LedsDriver::setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t blue, uint8_t white) {
+void LedsDriver::setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t blue, uint8_t white) {
     uint16_t channelNr = ledNr * channelsPerLed;
     leds[channelNr + offsetRed] = red;
     leds[channelNr + offsetGreen] = green;
@@ -80,7 +84,7 @@ void ESP32LedsDriver::setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8
         leds[channelNr + offsetWhite] = white;
 }
 
-void ESP32VirtualDriver::initDMABuffersVirtual() {
+void VirtualDriver::initDMABuffersVirtual() {
     DMABuffersTampon = (LedDriverDMABuffer **)heap_caps_malloc(sizeof(LedDriverDMABuffer *) * (__NB_DMA_BUFFER + 2), MALLOC_CAP_DMA);
 
     for (int num_buff = 0; num_buff < __NB_DMA_BUFFER + 2; num_buff++) {
@@ -90,7 +94,7 @@ void ESP32VirtualDriver::initDMABuffersVirtual() {
             int WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE = (576 * 2);
         #endif
         DMABuffersTampon[num_buff] = allocateDMABuffer(WS2812_DMA_DESCRIPTOR_BUFFER_MAX_SIZE);
-        // putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
+        putdefaultlatch((uint16_t *)DMABuffersTampon[num_buff]->buffer);
     } // the buffers for the
 
     for (int num_buff = 0; num_buff < __NB_DMA_BUFFER; num_buff++) {
@@ -98,7 +102,7 @@ void ESP32VirtualDriver::initDMABuffersVirtual() {
     }
 }
 
-LedDriverDMABuffer *ESP32VirtualDriver::allocateDMABufferVirtual(int bytes) {
+LedDriverDMABuffer *VirtualDriver::allocateDMABufferVirtual(int bytes) {
     LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
     if (!b)
     {
@@ -112,13 +116,13 @@ LedDriverDMABuffer *ESP32VirtualDriver::allocateDMABufferVirtual(int bytes) {
         ESP_LOGE(TAG, "No more memory\n");
         return NULL;
     }
-    
+
     memset(b->buffer, 0, bytes);
 
     return b;
 }
 
-void ESP32VirtualDriver::putdefaultonesVirtual(uint16_t *buffer) {
+void VirtualDriver::putdefaultonesVirtual(uint16_t *buffer) {
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
     // printf("mas%d\n",mas);
     for (int j = 0; j < 8 * channelsPerLed; j++) {

@@ -49,6 +49,67 @@ void VirtualDriverESP32S3::setPins() {
     gpio_set_drive_capability((gpio_num_t)clockPin, (gpio_drive_cap_t)3);
 }
 
+#include "esp_private/periph_ctrl.h" // for periph_module_enable (// #include "driver/periph_ctrl.h") deprecated
+#include <soc/lcd_cam_struct.h> // for LCD_CAM
+void VirtualDriverESP32S3::i2sInit() {
+    periph_module_enable(PERIPH_LCD_CAM_MODULE);
+    periph_module_reset(PERIPH_LCD_CAM_MODULE);
+
+    // Reset LCD bus
+    LCD_CAM.lcd_user.lcd_reset = 1;
+    esp_rom_delay_us(100);
+
+    LCD_CAM.lcd_clock.clk_en = 1;                             // Enable peripheral clock
+    LCD_CAM.lcd_clock.lcd_clk_sel = 2;                        // XTAL_CLK source
+    LCD_CAM.lcd_clock.lcd_ck_out_edge = 0;                    // PCLK low in 1st half cycle
+    LCD_CAM.lcd_clock.lcd_ck_idle_edge = 0;                   // PCLK low idle
+    LCD_CAM.lcd_clock.lcd_clk_equ_sysclk = 0;                 // PCLK = CLK / (CLKCNT_N+1)
+    LCD_CAM.lcd_clock.lcd_clkm_div_num = clockSpeed.div_num; // 1st stage 1:250 divide
+    LCD_CAM.lcd_clock.lcd_clkm_div_a = clockSpeed.div_a;     // 0/1 fractional divide
+    LCD_CAM.lcd_clock.lcd_clkm_div_b = clockSpeed.div_b;
+    LCD_CAM.lcd_clock.lcd_clkcnt_n = 1; //
+
+    LCD_CAM.lcd_ctrl.lcd_rgb_mode_en = 0;    // i8080 mode (not RGB)
+    LCD_CAM.lcd_rgb_yuv.lcd_conv_bypass = 0; // Disable RGB/YUV converter
+    LCD_CAM.lcd_misc.lcd_next_frame_en = 0;  // Do NOT auto-frame
+    LCD_CAM.lcd_data_dout_mode.val = 0;      // No data delays
+    LCD_CAM.lcd_user.lcd_always_out_en = 1;  // Enable 'always out' mode
+    LCD_CAM.lcd_user.lcd_8bits_order = 0;    // Do not swap bytes
+    LCD_CAM.lcd_user.lcd_bit_order = 0;      // Do not reverse bit order
+    LCD_CAM.lcd_user.lcd_byte_order = 0;
+    LCD_CAM.lcd_user.lcd_2byte_en = 1;       // 8-bit data mode
+    LCD_CAM.lcd_user.lcd_dummy = 0;          // Dummy phase(s) @ LCD start
+    LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0; // 1 dummy phase
+    LCD_CAM.lcd_user.lcd_cmd = 0;            // No command at LCD start
+    LCD_CAM.lcd_misc.lcd_bk_en = 1;
+    // -- Create a semaphore to block execution until all the controllers are done
+    gdma_channel_alloc_config_t dma_chan_config = {
+        .sibling_chan = NULL,
+        .direction = GDMA_CHANNEL_DIRECTION_TX,
+        .flags = {
+            .reserve_sibling = 0}};
+    gdma_new_ahb_channel(&dma_chan_config, &dma_chan); // @yves, gdma_new_channel deprecated so I replaced this (gdma_new_axi_channel() - for AXI DMA channels (only on chips that support it))
+    gdma_connect(dma_chan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
+    gdma_strategy_config_t strategy_config = {
+        .owner_check = false,
+        .auto_update_desc = false};
+    gdma_apply_strategy(dma_chan, &strategy_config);
+    /*
+    gdma_transfer_ability_t ability = {
+        .psram_trans_align = 64,
+        //.sram_trans_align = 64,
+    };
+    gdma_set_transfer_ability(dma_chan, &ability);
+*/
+    // Enable DMA transfer callback
+    gdma_tx_event_callbacks_t tx_cbs = {
+        .on_trans_eof = LedDriverinterruptHandler
+        };
+    gdma_register_tx_event_callbacks(dma_chan, &tx_cbs, this);
+    // esp_intr_disable((*dma_chan).intr);
+    LCD_CAM.lcd_user.lcd_start = 0;
+}
+
 void VirtualDriverESP32S3::initDMABuffers() {
     initDMABuffersVirtual(); // for all Virtual drivers, used by non S3 and S3
 
@@ -75,6 +136,16 @@ LedDriverDMABuffer *VirtualDriverESP32S3::allocateDMABuffer(int bytes) {
     b->dw0.length = bytes;
     b->dw0.suc_eof = 1;
     return b;
+}
+
+void VirtualDriverESP32S3::putdefaultlatch(uint16_t *buffer) {
+    // printf("dd%d\n",NBIS2SERIALPINS);
+    uint16_t mask1 = 1 << numPins;
+    for (int i = 0; i < 24 * channelsPerLed; i++)
+    {
+        buffer[i * (NUM_VIRT_PINS + 1)] = mask1;
+        // buff[NUM_VIRT_PINS+i*(NUM_VIRT_PINS+1)]=0x02;
+    }
 }
 
 void VirtualDriverESP32S3::putdefaultones(uint16_t *buffer) {

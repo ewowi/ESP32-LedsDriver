@@ -17,56 +17,44 @@ This project is 🚧:
 
 ### 🚧
 
-* ESP32LedsDriver (abstract)
+* LedsDriver (abstract)
     * initLeds()
         * virtual setPins()
         * virtual i2sInit();
         * virtual initDMABuffers();
         * virtual allocateDMABuffer()
+        * virtual putdefaultlatch()
         * virtual putdefaultones()
     * show()
 * CONFIG_IDF_TARGET_ESP32
     * LedsDriverESP32dev
         * PhysicalDriverESP32dev
             * setPins() 60%
-            * i2sInit() 0%
-            * initDMABuffers() 1%
-            * allocateDMABuffer() 60%
-            * putdefaultones() 60%
+            * i2sInit() 80% //todo LedDriverinterruptHandler implementation
+            * initDMABuffers() 100%
+            * allocateDMABuffer() 80% // not for FULL_DMA_BUFFER
+            * putdefaultones() 100%
         * VirtualDriverESP32dev
             * setPins() 60%
-            * i2sInit() 0%
-            * initDMABuffers() 1%
-            * allocateDMABuffer() 60%
-            * putdefaultones() 60%
+            * i2sInit() 80%
+            * initDMABuffers() 100%
+            * allocateDMABuffer() 100%
+            * putdefaullatch() 100%
+            * putdefaultones() 100%
 * CONFIG_IDF_TARGET_ESP32S3
     * LedsDriverESP32S3
-        * PhysicalDriverESP32S3
-            * setPins() 1%
-            * i2sInit() 0%
-            * initDMABuffers() 0%
-            * allocateDMABuffer() 60%
-            * putdefaultones() 60%
+        * PhysicalDriverESP32S3 // on hold
         * VirtualDriverESP32S3
             * setPins() 60%
-            * i2sInit() 0%
-            * initDMABuffers() 1%
-            * allocateDMABuffer() 60%
-            * putdefaultones() 60%
+            * i2sInit() 80%  //todo LedDriverinterruptHandler implementation
+            * initDMABuffers() 100%
+            * allocateDMABuffer() 100%
+            * putdefaullatch() 100%
+            * putdefaultones() 100%
 * CONFIG_IDF_TARGET_ESP32P4
     * LedsDriverESP32P4
         * PhysicalDriverESP32P4
-            * setPins() 1%
-            * i2sInit() 0%
-            * initDMABuffers() 0%
-            * allocateDMABuffer() 0%
-            * putdefaultones() 0%
         * VirtualDriverESP32P4
-            * setPins() 1%
-            * i2sInit() 0%
-            * initDMABuffers() 0%
-            * allocateDMABuffer() 0%
-            * putdefaultones() 0%
 
 ### main.cpp
 
@@ -83,7 +71,7 @@ Run Physical or Virtual driver for all defined boards:
 
 | Board    | General | Physical | Virtual |
 |----------|---------|----------|---------|
-| **General** | ESP32LedsDriver* | ESP32PhysicalDriver* | ESP32VirtualDriver* |
+| **General** | LedsDriver* | PhysicalDriver* | VirtualDriver* |
 | **dev / wrover** | LedsDriverESP32dev* | PhysicalDriverESP32dev | VirtualDriverESP32dev |
 | **S3** | LedsDriverESP32S3* | PhysicalDriverESP32S3 | VirtualDriverESP32S3 |
 | **P4** | LedsDriverESP32P4* | PhysicalDriverESP32P4 | VirtualDriverESP32P4 |
