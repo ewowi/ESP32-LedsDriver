@@ -4,9 +4,9 @@
     @repo      https://github.com/ewowi/ESP32-LedsDriver, submit changes to this file as PRs
     @Authors   https://github.com/ewowi/ESP32-LedsDriver/commits/main
     @Doc       https://github.com/ewowi/ESP32-LedsDriver/
-    @Copyright © 2025 Github ESP32-LedsDriver Commit Authors
-    @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-    @license   For non GPL-v3 usage, commercial licenses must be purchased. Contact moonmodules@icloud.com
+    @Copyright © 2025 Yves BAZIN
+    @license   The MIT License (MIT)
+    @license   For non MIT usage, commercial licenses must be purchased. Contact us for more information.
 **/
 
 // no #define but variables where possible
@@ -166,6 +166,9 @@ public:
         int interruptSource;
         int i2s_base_pin_index;
         void i2sInitDev();
+        static void IRAM_ATTR LedDriverinterruptHandler(void *arg) {
+            //todo
+        };
     };
 
     //https://github.com/hpwit/I2SClocklessLedDriver
@@ -173,9 +176,6 @@ public:
         void setPins() override;
 
         intr_handle_t _gI2SClocklessDriver_intr_handle;
-        static void IRAM_ATTR LedDriverinterruptHandler(void *arg) {
-            //todo
-        };
         void i2sInit() override; //i2sInitDev + Physical specific
 
         void initDMABuffers() override; // allocateDMABuffer + putdefaultones

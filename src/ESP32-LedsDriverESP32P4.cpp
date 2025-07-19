@@ -4,9 +4,9 @@
     @repo      https://github.com/ewowi/ESP32-LedsDriver, submit changes to this file as PRs
     @Authors   https://github.com/ewowi/ESP32-LedsDriver/commits/main
     @Doc       https://github.com/ewowi/ESP32-LedsDriver/
-    @Copyright © 2025 Github ESP32-LedsDriver Commit Authors
-    @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-    @license   For non GPL-v3 usage, commercial licenses must be purchased. Contact moonmodules@icloud.com
+    @Copyright © 2025 Yves BAZIN
+    @license   The MIT License (MIT)
+    @license   For non GPL-v3 usage, commercial licenses must be purchased. Contact us for more information.
 **/
 
 #ifdef CONFIG_IDF_TARGET_ESP32P4
