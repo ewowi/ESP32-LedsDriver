@@ -6,7 +6,7 @@
     @Doc       https://github.com/ewowi/ESP32-LedsDriver/
     @Copyright © 2025 Yves BAZIN
     @license   The MIT License (MIT)
-    @license   For non GPL-v3 usage, commercial licenses must be purchased. Contact us for more information.
+    @license   For non MIT usage, commercial licenses must be purchased. Contact us for more information.
 **/
 
 #ifdef CONFIG_IDF_TARGET_ESP32P4

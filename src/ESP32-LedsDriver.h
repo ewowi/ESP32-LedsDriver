@@ -48,13 +48,22 @@ protected:
     uint8_t offsetGreen = 0;
     uint8_t offsetBlue = 2;
     uint8_t offsetWhite = UINT8_MAX;
+    uint16_t maxNrOfLedsPerPin = 0;
 
     uint8_t brightness = UINT8_MAX;
     uint8_t correctionRed = UINT8_MAX;
     uint8_t correctionGreen = UINT8_MAX;
     uint8_t correctionBlue = UINT8_MAX;
 
+    //used by setBrightness and setColorCorrection, but 1024 bytes of extra data!!!
+    uint8_t __green_map[256];
+    uint8_t __blue_map[256];
+    uint8_t __red_map[256];
+    uint8_t __white_map[256];
+    float _gammar, _gammab, _gammag, _gammaw;
+
     //override in derived classes, called by initLeds
+    virtual void startDriver(); // called by initLeds, used in Virtual ATM
     virtual void setPins(); // public to call again when pins change?
     virtual void i2sInit();
     virtual void initDMABuffers(); // general? Physical S3 doesn't seem to do anything with dma ...
@@ -71,10 +80,10 @@ public:
 
     void setBrightness(uint8_t brightness);
 
-    void setColorCorrection(uint8_t red, uint8_t green, uint8_t blue);
+    void setColorCorrection(uint8_t red, uint8_t green, uint8_t blue, uint8_t white = UINT8_MAX);
 
     //sends leds array to physical LEDs
-    void show();
+    virtual void show();
 
     //sets RGB(W) values of a LED
     void setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t blue, uint8_t white = UINT8_MAX);
@@ -115,6 +124,8 @@ protected:
     uint8_t __NB_DMA_BUFFER = 20; //for S3, 16 for non s3?
     uint8_t _DMA_EXTENSTION = 0;
     LedDriverDMABuffer **DMABuffersTampon; //[__NB_DMA_BUFFER + 2];
+
+    void startDriver(); // todo, both for S3 and non S3 - and P4?
 
     void initDMABuffersVirtual();
 
@@ -206,9 +217,27 @@ public:
     class LedsDriverESP32S3: virtual public LedsDriver { //abstract class !
     };
 
-    //https://github.com/hpwit/I2SClockLessLedDriveresp32s3 (or FastLED), will implement later!
+    #include "esp_lcd_panel_io.h" // for esp_lcd_panel_io_handle_t etc
+
+    //https://github.com/hpwit/I2SClockLessLedDriveresp32s3 (or FastLED!, taken from FastLED!)
     class PhysicalDriverESP32S3: public LedsDriverESP32S3, public PhysicalDriver {
-        void setPins() override;
+
+        uint16_t *buffers[2]; //containing the 2 led_output buffers, set in init, used in transpose and show
+        int currentframe; //index in buffers, toggling between 0 and 1
+
+        //for initLed and show:
+        esp_lcd_panel_io_handle_t led_io_handle = NULL; //set by init, used in show
+
+        void setPins() override; // doing nothing ATM
+        void i2sInit() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::initLed() 
+        void initDMABuffers() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::__initLed()
+
+        //used in show
+        void transpose16x1_noinline2(unsigned char *A, uint16_t *B);
+        void transposeAll(uint16_t *ledoutput);
+
+    public:
+        void show() override;
     };
     //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and non S3)
     #include "esp_private/gdma.h" // gdma_channel_handle_t and gdma_channel_alloc_config_t

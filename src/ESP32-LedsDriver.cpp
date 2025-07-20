@@ -21,11 +21,15 @@ void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, u
     this->offsetBlue = offsetBlue;
     this->offsetWhite = offsetWhite;
 
-    for (size_t pin = 0; pin < numPins; pin++)
+    maxNrOfLedsPerPin = 0;
+    for (size_t pin = 0; pin < numPins; pin++) {
         ESP_LOGD(TAG, "gpio:%d #:%d", pinConfig[pin].gpio, pinConfig[pin].nrOfLeds);
-    ESP_LOGD(TAG, "#: %d r:%d g:%d b:%d w:%d", channelsPerLed, offsetRed, offsetGreen, offsetBlue, offsetWhite);
+        if (pinConfig[pin].nrOfLeds > maxNrOfLedsPerPin) maxNrOfLedsPerPin = pinConfig[pin].nrOfLeds;
+    }
+    ESP_LOGD(TAG, "#: %d r:%d g:%d b:%d w:%d max:%d", channelsPerLed, offsetRed, offsetGreen, offsetBlue, offsetWhite, maxNrOfLedsPerPin);
 
     //overridden in derived classes:
+    startDriver();
     setPins();
     i2sInit();
     initDMABuffers();
@@ -34,13 +38,34 @@ void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, u
 void LedsDriver::setBrightness(uint8_t brightness) {
     ESP_LOGD(TAG, "%d", brightness);
     this->brightness = brightness;
+    float tmp;
+    for (int i = 0; i < 256; i++) {
+        tmp = powf((float)i / 255, 1 / _gammag);
+        __green_map[i] = (uint8_t)(tmp * brightness);
+        tmp = powf((float)i / 255, 1 / _gammab);
+        __blue_map[i] = (uint8_t)(tmp * brightness);
+        tmp = powf((float)i / 255, 1 / _gammar);
+        __red_map[i] = (uint8_t)(tmp * brightness);
+        tmp = powf((float)i / 255, 1 / _gammaw);
+        __white_map[i] = (uint8_t)(tmp * brightness);
+    }
 }
 
-void LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue) {
+void LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue, uint8_t white) {
     ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
     this->correctionRed = red;
     this->correctionGreen = green;
     this->correctionBlue = blue;
+
+        _gammag = green/255.0;
+        _gammar = red/255.0;
+        _gammaw = white/255.0;
+        _gammab = blue/255.0;
+        setBrightness(brightness); //force brightness to correct the rgb map tables
+}
+
+void LedsDriver::startDriver() {
+    ESP_LOGD(TAG, "This function is optional for a specific driver!"); // currently only Virtual
 }
 
 void LedsDriver::setPins() {
@@ -82,6 +107,10 @@ void LedsDriver::setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t bl
     leds[channelNr + offsetBlue] = blue;
     if (offsetWhite != UINT8_MAX)
         leds[channelNr + offsetWhite] = white;
+}
+
+void VirtualDriver::startDriver() {
+    // to do
 }
 
 void VirtualDriver::initDMABuffersVirtual() {

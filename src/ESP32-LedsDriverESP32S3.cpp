@@ -23,15 +23,326 @@
 #include "rom/gpio.h"
 
 void PhysicalDriverESP32S3::setPins() {
-    // using bus_config and io_config ...
-    // for (int i = 0; i < numstrip; i++) {
-    //     bus_config.data_gpio_nums[i] = pins[i];
-    // }
-    // if (numstrip < 16) {
-    //     for (int i = numstrip; i < 16; i++) {
-    //         bus_config.data_gpio_nums[i] = 0;
-    //     }
-    // }
+    //nothing here for PhysicalDriverESP32S3
+}
+
+#define LCD_DRIVER_PSRAM_DATA_ALIGNMENT 64
+#define __OFFSET 0 //  (24*3*2*2*2+2)
+#define __OFFSET_END (24 * 3 * 2 * 2 * 2 + 2)
+
+volatile xSemaphoreHandle I2SClocklessLedDriverS3_sem = NULL;
+
+void PhysicalDriverESP32S3::i2sInit() {
+
+    uint16_t *led_output = NULL;
+    uint16_t *led_output2 = NULL;
+
+    //this comes from I2SClocklessLedDriveresp32S3::initLed() in original repo. put it here in i2sInit() for the moment
+
+    currentframe = 0;
+    _gammab = 1;
+    _gammar = 1;
+    _gammag = 1;
+    _gammaw = 1;
+    setBrightness(255);
+    if (I2SClocklessLedDriverS3_sem == NULL) {
+        I2SClocklessLedDriverS3_sem = xSemaphoreCreateBinary();
+    }
+    // esp_lcd_panel_io_handle_t init_lcd_driver(unsigned int
+    // FASTLED_ESP32S3_I2S_CLOCK_HZ, size_t channelsPerLed) {
+    led_output = (uint16_t *)heap_caps_aligned_alloc(
+        LCD_DRIVER_PSRAM_DATA_ALIGNMENT,
+        8 * channelsPerLed * maxNrOfLedsPerPin * 3 * 2 + __OFFSET +
+            __OFFSET_END,
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    memset(led_output, 0,
+            8 * channelsPerLed * maxNrOfLedsPerPin * 3 * 2 + __OFFSET +
+                __OFFSET_END);
+
+    led_output2 = (uint16_t *)heap_caps_aligned_alloc(
+        LCD_DRIVER_PSRAM_DATA_ALIGNMENT,
+        8 * channelsPerLed * maxNrOfLedsPerPin * 3 * 2 + __OFFSET +
+            __OFFSET_END,
+        MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    memset(led_output2, 0,
+            8 * channelsPerLed * maxNrOfLedsPerPin * 3 * 2 + __OFFSET +
+                __OFFSET_END);
+    buffers[0] = led_output;
+    buffers[1] = led_output2;
+    // led_output[0] = 0xFFFF; //the +1 because it's like the first value
+    // doesnt get pushed do not ask me why for now
+    // led_output2[0] = 0xFFFF;
+    led_output2 += __OFFSET / 2;
+    led_output += __OFFSET / 2;
+
+    for (int i = 0; i < maxNrOfLedsPerPin * channelsPerLed * 8; i++) {
+        led_output[3 * i + 1] =
+            0xFFFF; // the +1 because it's like the first value doesnt get
+                    // pushed do not ask me why for now
+        led_output2[3 * i + 1] = 0xFFFF;
+    }
+    // ledsbuff = leds;
+    // _numstrips = numstrip;
+    // num_leds_per_strip = maxNrOfLedsPerPin;
+    // _initled(leds, pins, numstrip, NUM_LED_PER_STRIP); //we do this in initDMABuffers for the moment
+}
+
+// #include "esp_lcd_panel_io.h"
+
+// Note: I2S REQUIRES that the FASTLED_OVERCLOCK factor is a a build-level-define and
+// not an include level define. This is easy if you are already using PlatformIO or CMake.
+// If you are using ArduinoIDE you'll have to download FastLED source code and hack the src
+// to make this work.
+#ifdef FASTLED_OVERCLOCK
+#define FASTLED_ESP32S3_I2S_CLOCK_HZ_SCALE (FASTLED_OVERCLOCK)
+#else
+#define FASTLED_ESP32S3_I2S_CLOCK_HZ_SCALE (1)
+#endif
+
+#ifndef FASTLED_ESP32S3_I2S_CLOCK_HZ
+#define FASTLED_ESP32S3_I2S_CLOCK_HZ uint32_t((24 * 100 * 1000)*FASTLED_ESP32S3_I2S_CLOCK_HZ_SCALE)
+#endif
+
+// #include "esp_lcd_panel_io.h" // for esp_lcd_panel_io_handle_t etc
+
+// bool DRIVER_READY = true;
+volatile bool isDisplaying = false;
+volatile bool iswaiting = false;
+static bool IRAM_ATTR flush_readyStatic(esp_lcd_panel_io_handle_t panel_io,
+                                  esp_lcd_panel_io_event_data_t *edata,
+                                  void *user_ctx) {
+
+    printf("we're here");
+    // DRIVER_READY = true; //@yves: looks like doing nothing
+    isDisplaying = false;
+    //@yves, what is this doing ?: (looks like nothing)
+    // I2SClocklessLedDriveresp32S3 *cont =
+    //     (I2SClocklessLedDriveresp32S3 *)user_ctx;
+    // cont->testcount++;
+    if (iswaiting) {
+        portBASE_TYPE HPTaskAwoken = 0;
+        iswaiting = false;
+        xSemaphoreGiveFromISR(I2SClocklessLedDriverS3_sem, &HPTaskAwoken);
+        if (HPTaskAwoken == pdTRUE)
+            portYIELD_FROM_ISR(HPTaskAwoken);
+    }
+    return false;
+}
+
+#include "esp_err.h" // for ESP_ERROR_CHECK
+
+void PhysicalDriverESP32S3::initDMABuffers() {
+
+    //this comes from I2SClocklessLedDriveresp32S3::__initLed() in original repo. put it here in initDMABuffers() for the moment
+
+    // esp_lcd_panel_io_handle_t init_lcd_driver(unsigned int
+    // FASTLED_ESP32S3_I2S_CLOCK_HZ, size_t channelsPerLed) {
+
+    esp_lcd_i80_bus_handle_t i80_bus = NULL;
+
+    esp_lcd_i80_bus_config_t bus_config;
+
+    bus_config.clk_src = LCD_CLK_SRC_PLL160M;
+    bus_config.dc_gpio_num = 0;
+    bus_config.wr_gpio_num = 0;
+    // bus_config.data_gpio_nums = (int*)malloc(16*sizeof(int));
+    for (int i = 0; i < numPins; i++) {
+        bus_config.data_gpio_nums[i] = pinConfig[i].gpio;
+    }
+    if (numPins < 16) {
+        for (int i = numPins; i < 16; i++) {
+            bus_config.data_gpio_nums[i] = 0;
+        }
+    }
+    bus_config.bus_width = 16;
+    bus_config.max_transfer_bytes =
+    channelsPerLed * maxNrOfLedsPerPin * 8 * 3 * 2 + __OFFSET + __OFFSET_END;
+
+    // #if IDF_5_3_OR_EARLIER
+    // #pragma GCC diagnostic push
+    // #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    // #endif
+    // In IDF 5.3, psram_trans_align became deprecated. We kick the can down
+    // the road a little bit and suppress the warning until idf 5.4 arrives.
+    #if ESP_IDF_VERSION_MAJOR < 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 4)
+        // In IDF < 5.4, psram_trans_align and sram_trans_align are required.
+        bus_config.psram_trans_align = LCD_DRIVER_PSRAM_DATA_ALIGNMENT; //@yves, DEPRECATED, @zach better surpresson?
+        bus_config.sram_trans_align = 4; //@yves: DEPRECATED, @zach better surpresson?
+    #endif
+    // #if IDF_5_3_OR_EARLIER
+    // #pragma GCC diagnostic pop
+    // #endif
+
+    ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
+
+    esp_lcd_panel_io_i80_config_t io_config;
+
+    io_config.cs_gpio_num = -1;
+    io_config.pclk_hz = FASTLED_ESP32S3_I2S_CLOCK_HZ;
+    io_config.trans_queue_depth = 1;
+    io_config.dc_levels = {
+        .dc_idle_level = 0,
+        .dc_cmd_level = 0,
+        .dc_dummy_level = 0,
+        .dc_data_level = 1,
+    };
+    //.on_color_trans_done = flush_ready,
+    // .user_ctx = nullptr,
+    io_config.lcd_cmd_bits = 0;
+    io_config.lcd_param_bits = 0;
+    io_config.user_ctx = this;
+
+    io_config.on_color_trans_done = flush_readyStatic;
+    ESP_ERROR_CHECK(
+        esp_lcd_new_panel_io_i80(i80_bus, &io_config, &led_io_handle));
+}
+
+typedef union {
+    uint8_t bytes[16];
+    uint32_t shorts[8];
+    uint32_t raw[2];
+} Lines;
+
+#define AA (0x00AA00AAL)
+#define CC (0x0000CCCCL)
+#define FF (0xF0F0F0F0L)
+#define FF2 (0x0F0F0F0FL)
+
+void IRAM_ATTR PhysicalDriverESP32S3::transpose16x1_noinline2(unsigned char *A, uint16_t *B) {
+
+    uint32_t x, y, x1, y1, t;
+
+    y = *(unsigned int *)(A);
+    if (numPins > 4)
+        x = *(unsigned int *)(A + 4);
+    else
+        x = 0;
+
+    if (numPins > 8)
+        y1 = *(unsigned int *)(A + 8);
+    else
+        y1 = 0;
+
+
+    if (numPins > 12)
+        x1 = *(unsigned int *)(A + 12);
+    else
+        x1 = 0;
+
+    // pre-transform x
+    if (numPins > 4) {
+        t = (x ^ (x >> 7)) & AA;
+        x = x ^ t ^ (t << 7);
+        t = (x ^ (x >> 14)) & CC;
+        x = x ^ t ^ (t << 14);
+    }
+
+    if (numPins > 12) {
+        t = (x1 ^ (x1 >> 7)) & AA;
+        x1 = x1 ^ t ^ (t << 7);
+        t = (x1 ^ (x1 >> 14)) & CC;
+        x1 = x1 ^ t ^ (t << 14);
+    }
+
+    // pre-transform y
+    t = (y ^ (y >> 7)) & AA;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & CC;
+    y = y ^ t ^ (t << 14);
+
+    if (numPins > 8) {
+        t = (y1 ^ (y1 >> 7)) & AA;
+        y1 = y1 ^ t ^ (t << 7);
+        t = (y1 ^ (y1 >> 14)) & CC;
+        y1 = y1 ^ t ^ (t << 14);
+    }
+
+    // final transform
+    t = (x & FF) | ((y >> 4) & FF2);
+    y = ((x << 4) & FF) | (y & FF2);
+    x = t;
+
+    t = (x1 & FF) | ((y1 >> 4) & FF2);
+    y1 = ((x1 << 4) & FF) | (y1 & FF2);
+    x1 = t;
+
+    *((uint16_t *)(B)) =
+        (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 3)) =
+        (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 6)) =
+        (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 9)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 12)) =
+        (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 15)) =
+        (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 18)) =
+        (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 21)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+}
+
+void PhysicalDriverESP32S3::transposeAll(uint16_t *ledoutput) {
+
+    uint16_t ledToDisplay = 0;
+    Lines secondPixel[channelsPerLed];
+    uint16_t *buff =
+        ledoutput + 2; //+1 pour le premier empty +1 pour le 1 systématique
+    uint16_t jump = maxNrOfLedsPerPin * channelsPerLed;
+    for (int j = 0; j < maxNrOfLedsPerPin; j++) {
+        uint8_t *poli = leds + ledToDisplay * channelsPerLed; //@yves: leds was ledsbuff, why as it is same as leds *?
+        for (int i = 0; i < numPins; i++) {
+
+            secondPixel[offsetGreen].bytes[i] = __green_map[*(poli + 1)];
+            secondPixel[offsetRed].bytes[i] = __red_map[*(poli + 0)];
+            secondPixel[offsetBlue].bytes[i] = __blue_map[*(poli + 2)];
+            if (channelsPerLed > 3)
+                secondPixel[offsetWhite].bytes[i] = __white_map[*(poli + 3)];
+            // #endif
+            poli += jump;
+        }
+        ledToDisplay++;
+        transpose16x1_noinline2(secondPixel[0].bytes, buff);
+        buff += 24;
+        transpose16x1_noinline2(secondPixel[1].bytes, buff);
+        buff += 24;
+        transpose16x1_noinline2(secondPixel[2].bytes, buff);
+        buff += 24;
+        if (channelsPerLed > 3) {
+            transpose16x1_noinline2(secondPixel[3].bytes, buff);
+            buff += 24;
+        }
+    }
+}
+
+// According to bug reports, this driver does not work well with the new WS2812-v5b. This is
+// probably due to the extrrra long reset time requirements of this chipset. so we put in
+// a hack that will always add 300 uS to the reset time.
+#define FASTLED_EXPERIMENTAL_YVES_EXTRA_WAIT_MICROS 300
+
+void PhysicalDriverESP32S3::show() {
+    transposeAll(buffers[currentframe]);
+    if (isDisplaying) {
+        // Serial.println("on display dejà");
+        iswaiting = true;
+        if (I2SClocklessLedDriverS3_sem == NULL)
+            I2SClocklessLedDriverS3_sem = xSemaphoreCreateBinary();
+        xSemaphoreTake(I2SClocklessLedDriverS3_sem, portMAX_DELAY);
+    }
+    isDisplaying = true;
+
+    if (FASTLED_EXPERIMENTAL_YVES_EXTRA_WAIT_MICROS) {
+        delayMicroseconds(FASTLED_EXPERIMENTAL_YVES_EXTRA_WAIT_MICROS);
+    }
+
+    // @yves, I got an error on led_io_handle->tx_color saying pointer or reference to incomplete type "esp_lcd_panel_io_t" is not allowed 
+    // AI gave me esp_lcd_panel_io_tx_color, save to use?
+    esp_lcd_panel_io_tx_color(led_io_handle, 0x2C, buffers[currentframe],
+                              channelsPerLed * maxNrOfLedsPerPin * 8 * 3 *
+                                  2 +
+                              __OFFSET + __OFFSET_END);
+
+    currentframe = (currentframe + 1) % 2;
 }
 
 void VirtualDriverESP32S3::setPins() {
