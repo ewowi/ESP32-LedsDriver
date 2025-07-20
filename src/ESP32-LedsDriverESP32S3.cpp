@@ -115,8 +115,6 @@ static bool IRAM_ATTR flush_readyStatic(esp_lcd_panel_io_handle_t panel_io,
                                   esp_lcd_panel_io_event_data_t *edata,
                                   void *user_ctx) {
 
-    ESP_LOGD(TAG, "");
-
     // DRIVER_READY = true; //@yves: looks like doing nothing
     isDisplaying = false;
     //@yves, what is this doing ?: (looks like nothing)... is later used in ...
@@ -164,20 +162,21 @@ void PhysicalDriverESP32S3::initDMABuffers() {
     bus_config.max_transfer_bytes =
     channelsPerLed * maxNrOfLedsPerPin * 8 * 3 * 2 + __OFFSET + __OFFSET_END;
 
-    // #if IDF_5_3_OR_EARLIER
-    // #pragma GCC diagnostic push
-    // #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    // #endif
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 4, 0)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #endif
+
     // In IDF 5.3, psram_trans_align became deprecated. We kick the can down
     // the road a little bit and suppress the warning until idf 5.4 arrives.
-    // #if ESP_IDF_VERSION_MAJOR < 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 4)
-        // In IDF < 5.4, psram_trans_align and sram_trans_align are required.
-        bus_config.psram_trans_align = LCD_DRIVER_PSRAM_DATA_ALIGNMENT; //@yves, DEPRECATED, @zach better surpresson?
-        bus_config.sram_trans_align = 4; //@yves: DEPRECATED, @zach better surpresson?
-    // #endif
-    // #if IDF_5_3_OR_EARLIER
-    // #pragma GCC diagnostic pop
-    // #endif
+    // In IDF < 5.4, psram_trans_align and sram_trans_align are required.
+    //ewowi: we also need it in 5.4 deprecated or not ... this was needed to get lights burning !
+    bus_config.psram_trans_align = LCD_DRIVER_PSRAM_DATA_ALIGNMENT; //@yves, DEPRECATED...
+    bus_config.sram_trans_align = 4; //@yves: DEPRECATED
+
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 4, 0)
+        #pragma GCC diagnostic pop
+    #endif
 
     ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
 
