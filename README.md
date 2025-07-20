@@ -2,12 +2,13 @@
 
 Physical and Virtual LedsDriver for ESP32-dev, ESP32-wrover, ESP32-S3, ESP32-P4.
 
-* Physical: LEDs are connected to GPIO pins of an ESP32 board directly. 
+* **Physical**: LEDs are connected to GPIO pins of an ESP32 board (preferably level shifted with 74HCT125 and a few resistors).
     * Max 16 pins (or more...)
-* Virtual: Between the ESP32 and the ledstrips there are a number of IC's:
-    * 74HCT245 : this is a bus used as a level shifter (you will need only one of them for LATCH and CLOCK)
+* **Virtual**: Between the ESP32 and the ledstrips there are a number of IC's:
+    * 74HCT245 : this is a bus used as a level shifter (you will need only one of them for latch and clock)
     * 74HCT595 : this is an 8 bit shift register (you will need one 74HC595 for each Virtual pin)
-    * The T in the chipname is important! Maximal 15 74HCT595's possible resulting in a stunning 120 pin config 🔥. But a 6 chips / 48 pins setup is a nice sweet spot.
+    * The T in the chipname is important (for HCT the 0-part is smaller than the 1 part so it works better with 3.3v)! The 595 also does the level shifting, resistors on each pin are recommended, see [QuinLed - The Myth of the Data Signal Resistor](https://quinled.info/data-signal-cable-conditioning/). Maximal 15 74HCT595's possible resulting in a stunning 120 pin config 🔥. But a 6 chips / 48 pins setup is a nice sweet spot.
+* **Why**: Driving high number of LEDs at high framerates: 256 leds on one pin is 130FPS, 48 * 256 leds on 48 pins is also 130FPS. (effects slow it down to 50-120 FPS normally).
 
 ## Introduction
 
@@ -20,12 +21,12 @@ This library is a new take on a new take on driving LEDs and combines the follow
 
 This has a number of advantages:
 
-* Splitting .h into .h and .cpp libraries allowing for faster compile and no duplicate definition errors. It also makes things easier to read.
-* Replacing #define variables where possible into class variables so they become runtime configurable (e.g. num strips, num leds per strip, color order, pins, dmaBuffer etc etc)
-* Sharing code used in all libraries (which were in above repos sometimes slightly different) -> easier maintenance.
-* Allow for new drivers e.g. physical and virtual for ESP32-P4 without creating too many repo's
-* Currently this repo is not depending on FastLED, e.g. no CRGB struct or leds array, just uint8_t. Not sure if this is an advantage but it sounds okay-ish
-* Have a unified interface for all of these libraries so it is easy to switch driver and #ifdef with different ESP32's:
+* Replacing #define variables where possible into class variables so they become **runtime configurable** instead of a new compilation for each config (e.g. num strips, num leds per strip, color order, pins, dmaBuffer etc etc)
+* Have a **unified interface** for all of these libraries so it is easy to switch driver and #ifdef with different ESP32's:
+* Sharing code used in all libraries (which were in above repos sometimes slightly different) -> **easier maintenance**.
+* Splitting .h into .h and .cpp libraries allowing for **faster compile and no duplicate definition errors**. It also makes things easier to read.
+* Allow for **new drivers e.g. physical and virtual for ESP32-P4** without creating too many repo's
+* Currently this repo is **not depending on FastLED**, e.g. no CRGB struct or leds array, just uint8_t. Not sure if this is an advantage but it sounds okay-ish
 
 Definition:
 
@@ -83,7 +84,7 @@ Behind the scenes the following functions are implemented for each driver:
     * transposeAll ... 
 
 
-This repo is tuned to be easy to include in other repo's:
+This repo is tuned to be **easy to include in other repo's**:
 
  - [MoonLight](https://github.com/MoonModules/MoonLight): See also [2025-07-16-MoonLightv057](https://moonmodules.org/2025-07-16-MoonLightv057) - this was the initial driver to start this project.
  - [FastLED](https://github.com/FastLED/FastLED): FastLED now uses [I2SClocklessLedDriverESP32S3](https://github.com/hpwit/I2SClocklessLedDriverESP32S3), it actually improved it. This improved version was used back into this project. It could be a good idea, once this repo is mature enough, to include this in FastLED and not have only Physical S3, but all Physical and Virtual flavors.
