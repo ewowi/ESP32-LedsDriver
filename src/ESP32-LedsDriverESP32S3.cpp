@@ -35,6 +35,8 @@ volatile xSemaphoreHandle I2SClocklessLedDriverS3_sem = NULL;
 
 void PhysicalDriverESP32S3::i2sInit() {
 
+    ESP_LOGD(TAG, "");
+
     uint16_t *led_output = NULL;
     uint16_t *led_output2 = NULL;
 
@@ -113,10 +115,11 @@ static bool IRAM_ATTR flush_readyStatic(esp_lcd_panel_io_handle_t panel_io,
                                   esp_lcd_panel_io_event_data_t *edata,
                                   void *user_ctx) {
 
-    printf("we're here");
+    ESP_LOGD(TAG, "");
+
     // DRIVER_READY = true; //@yves: looks like doing nothing
     isDisplaying = false;
-    //@yves, what is this doing ?: (looks like nothing)
+    //@yves, what is this doing ?: (looks like nothing)... is later used in ...
     // I2SClocklessLedDriveresp32S3 *cont =
     //     (I2SClocklessLedDriveresp32S3 *)user_ctx;
     // cont->testcount++;
@@ -133,6 +136,8 @@ static bool IRAM_ATTR flush_readyStatic(esp_lcd_panel_io_handle_t panel_io,
 #include "esp_err.h" // for ESP_ERROR_CHECK
 
 void PhysicalDriverESP32S3::initDMABuffers() {
+
+    ESP_LOGD(TAG, "");
 
     //this comes from I2SClocklessLedDriveresp32S3::__initLed() in original repo. put it here in initDMABuffers() for the moment
 
@@ -165,11 +170,11 @@ void PhysicalDriverESP32S3::initDMABuffers() {
     // #endif
     // In IDF 5.3, psram_trans_align became deprecated. We kick the can down
     // the road a little bit and suppress the warning until idf 5.4 arrives.
-    #if ESP_IDF_VERSION_MAJOR < 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 4)
+    // #if ESP_IDF_VERSION_MAJOR < 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR < 4)
         // In IDF < 5.4, psram_trans_align and sram_trans_align are required.
         bus_config.psram_trans_align = LCD_DRIVER_PSRAM_DATA_ALIGNMENT; //@yves, DEPRECATED, @zach better surpresson?
         bus_config.sram_trans_align = 4; //@yves: DEPRECATED, @zach better surpresson?
-    #endif
+    // #endif
     // #if IDF_5_3_OR_EARLIER
     // #pragma GCC diagnostic pop
     // #endif

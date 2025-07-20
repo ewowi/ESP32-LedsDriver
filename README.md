@@ -6,9 +6,9 @@ Physical and Virtual LedsDriver for ESP32-dev, ESP32-wrover, ESP32-S3, ESP32-P4.
     * Max 16 pins (or more...)
 * **Virtual**: Between the ESP32 and the ledstrips there are a number of IC's:
     * 74HCT245 : this is a bus used as a level shifter (you will need only one of them for latch and clock)
-    * 74HCT595 : this is an 8 bit shift register (you will need one 74HC595 for each Virtual pin)
+    * 74HCT595 : this is an 8 bit shift register (you will need one for each virtual pin)
     * The T in the chipname is important (for HCT the 0-part is smaller than the 1 part so it works better with 3.3v)! The 595 also does the level shifting, resistors on each pin are recommended, see [QuinLed - The Myth of the Data Signal Resistor](https://quinled.info/data-signal-cable-conditioning/). Maximal 15 74HCT595's possible resulting in a stunning 120 pin config 🔥. But a 6 chips / 48 pins setup is a nice sweet spot.
-* **Why**: Driving high number of LEDs at high framerates: 256 leds on one pin is 130FPS, 48 * 256 leds on 48 pins is also 130FPS. (effects slow it down to 50-120 FPS normally).
+* **Why**: Driving high number of LEDs at high framerates by one ESP32: 256 leds on one pin is 130FPS, 48 * 256 leds on 48 pins is also 130FPS. (effects slow it down to 50-120 FPS normally).
 
 ## Introduction
 

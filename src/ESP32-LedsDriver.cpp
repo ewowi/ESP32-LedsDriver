@@ -70,12 +70,10 @@ void LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue, ui
 }
 
 void LedsDriver::getColorCorrection(uint8_t &red, uint8_t &green, uint8_t &blue, uint8_t &white) {
-    ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
     red = correctionRed;
     green = correctionGreen;
     blue = correctionBlue;
     white = correctionWhite;
-
 }
 
 void LedsDriver::startDriver() {
