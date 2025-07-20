@@ -54,6 +54,7 @@ protected:
     uint8_t correctionRed = UINT8_MAX;
     uint8_t correctionGreen = UINT8_MAX;
     uint8_t correctionBlue = UINT8_MAX;
+    uint8_t correctionWhite = UINT8_MAX;
 
     //used by setBrightness and setColorCorrection, but 1024 bytes of extra data!!!
     uint8_t __green_map[256];
@@ -79,8 +80,10 @@ public:
     void initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed = 3, uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
 
     void setBrightness(uint8_t brightness);
+    uint8_t getBrightness();
 
     void setColorCorrection(uint8_t red, uint8_t green, uint8_t blue, uint8_t white = UINT8_MAX);
+    void getColorCorrection(uint8_t &red, uint8_t &green, uint8_t &blue, uint8_t &white);
 
     //sends leds array to physical LEDs
     virtual void show();
@@ -225,9 +228,6 @@ public:
         uint16_t *buffers[2]; //containing the 2 led_output buffers, set in init, used in transpose and show
         int currentframe; //index in buffers, toggling between 0 and 1
 
-        //for initLed and show:
-        esp_lcd_panel_io_handle_t led_io_handle = NULL; //set by init, used in show
-
         void setPins() override; // doing nothing ATM
         void i2sInit() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::initLed() 
         void initDMABuffers() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::__initLed()
@@ -237,6 +237,10 @@ public:
         void transposeAll(uint16_t *ledoutput);
 
     public:
+        //for initLed and show:
+        // dirty hack for the time being so led_io_handle can be checked to see if init has been done (must be moved back to private)
+        esp_lcd_panel_io_handle_t led_io_handle = NULL; //set by init, used in show
+
         void show() override;
     };
     //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and non S3)

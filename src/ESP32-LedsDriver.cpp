@@ -51,17 +51,31 @@ void LedsDriver::setBrightness(uint8_t brightness) {
     }
 }
 
+uint8_t LedsDriver::getBrightness() {
+    return brightness;
+}
+
 void LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue, uint8_t white) {
     ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
     this->correctionRed = red;
     this->correctionGreen = green;
     this->correctionBlue = blue;
+    this->correctionWhite = white;
 
         _gammag = green/255.0;
         _gammar = red/255.0;
         _gammaw = white/255.0;
         _gammab = blue/255.0;
         setBrightness(brightness); //force brightness to correct the rgb map tables
+}
+
+void LedsDriver::getColorCorrection(uint8_t &red, uint8_t &green, uint8_t &blue, uint8_t &white) {
+    ESP_LOGD(TAG, "r:%d g:%d b:%d", red, green, blue);
+    red = correctionRed;
+    green = correctionGreen;
+    blue = correctionBlue;
+    white = correctionWhite;
+
 }
 
 void LedsDriver::startDriver() {
