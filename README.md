@@ -6,15 +6,15 @@ Physical and Virtual LedsDriver for ESP32-dev, ESP32-wrover, ESP32-S3, ESP32-P4
 
 This library is a new take on a new take on driving LEDs and combines the following repos into one:
 
-* https://github.com/hpwit/I2SClocklessLedDriver.git
-* https://github.com/hpwit/I2SClocklessLedDriverESP32S3.git
-* https://github.com/hpwit/I2SClocklessVirtualLedDriver.git
-* https://github.com/hpwit/I2SClocklessVirtualLedDriverESP32S3.git
+* [I2SClocklessLedDriver](https://github.com/hpwit/I2SClocklessLedDriver)
+* [I2SClocklessLedDriverESP32S3](https://github.com/hpwit/I2SClocklessLedDriverESP32S3)
+* [I2SClocklessVirtualLedDriver](https://github.com/hpwit/I2SClocklessVirtualLedDriver)
+* [I2SClocklessVirtualLedDriverESP32S3](https://github.com/hpwit/I2SClocklessVirtualLedDriverESP32S3)
 
-This has some advantages
+This has some advantages:
 
-* Spliting .h into .h and .cpp libraries allowing for faster compile and no duplicate definition errors. It also makes things easier to read.
-* Sharing code used in all libraries (sometimes slightly different)
+* Splirting .h into .h and .cpp libraries allowing for faster compile and no duplicate definition errors. It also makes things easier to read.
+* Sharing code used in all libraries (which were in above repos sometimes slightly different) -> easier maintenance.
 * Allow for new drivers e.g. physical and virtual for ESP32-P4.
 * Have a unified interface for all of these libraries:
 
@@ -29,6 +29,7 @@ Definition:
 
     PhysicalDriverESP32P4 ledsDriver;
     VirtualDriverESP32P4 ledsDriver;
+```
 
 Interface:
 
@@ -67,6 +68,8 @@ Behind the scenes the following functions are implemented for each driver:
         * allocateDMABuffer
         * putdefaultlatch
         * putdefaultones
+* show
+    * transposeAll ... 
 
 See also [2025-07-16-MoonLightv057](https://moonmodules.org/2025-07-16-MoonLightv057)
 
@@ -74,9 +77,9 @@ This project is 🚧:
 
 | Board    | General | Physical | Virtual |
 |----------|---------|----------|---------|
-| **General** | 20%  | 20% | 20% |
-| **dev / wrover** | 10% | 10% | 3% |
-| **S3** | 3% | 3% | 3% |
+| **General** | 40%  | 40% | 40% |
+| **dev / wrover** | 40% | 20% | 3% |
+| **S3** | 40% | 70% | 3% |
 | **P4** | 1% | 0% | 0% |
 
 ## Code
@@ -109,7 +112,14 @@ This project is 🚧:
             * putdefaultones() 100%
 * CONFIG_IDF_TARGET_ESP32S3
     * LedsDriverESP32S3
-        * PhysicalDriverESP32S3 // on hold
+        * PhysicalDriverESP32S3
+            * setPins()* n/a
+            * i2sInit() 80% used as a placeholder for part of the initLeds code
+            * initDMABuffers() 80% used as a placeholder for part of the initLeds code
+            * allocateDMABuffer() n/a
+            * putdefaultlatch() n/a
+            * putdefaultones() n/a
+            * show() 80%
         * VirtualDriverESP32S3
             * setPins() 60%
             * i2sInit() 80%  //todo LedDriverinterruptHandler implementation

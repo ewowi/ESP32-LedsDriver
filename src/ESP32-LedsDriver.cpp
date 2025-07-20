@@ -62,11 +62,11 @@ void LedsDriver::setColorCorrection(uint8_t red, uint8_t green, uint8_t blue, ui
     this->correctionBlue = blue;
     this->correctionWhite = white;
 
-        _gammag = green/255.0;
-        _gammar = red/255.0;
-        _gammaw = white/255.0;
-        _gammab = blue/255.0;
-        setBrightness(brightness); //force brightness to correct the rgb map tables
+    _gammag = green/255.0;
+    _gammar = red/255.0;
+    _gammaw = white/255.0;
+    _gammab = blue/255.0;
+    setBrightness(brightness); //force brightness to correct the rgb map tables
 }
 
 void LedsDriver::getColorCorrection(uint8_t &red, uint8_t &green, uint8_t &blue, uint8_t &white) {
