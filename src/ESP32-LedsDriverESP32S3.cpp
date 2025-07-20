@@ -23,7 +23,8 @@
 #include "rom/gpio.h"
 
 void PhysicalDriverESP32S3::setPins() {
-    //nothing here for PhysicalDriverESP32S3
+    //nothing here for PhysicalDriverESP32S3: pins are set in initDMABuffers, ... need to investigate if it can be moved here
+    //  also can pins be changed in runtime...
 }
 
 #define LCD_DRIVER_PSRAM_DATA_ALIGNMENT 64
