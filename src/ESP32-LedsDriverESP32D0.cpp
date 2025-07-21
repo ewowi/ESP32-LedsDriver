@@ -1,6 +1,6 @@
 /**
     @title     ESP32-LedsDriver
-    @file      ESP32-LedsDriverESP32dev.cpp
+    @file      ESP32-LedsDriverESP32D0.cpp
     @repo      https://github.com/ewowi/ESP32-LedsDriver, submit changes to this file as PRs
     @Authors   https://github.com/ewowi/ESP32-LedsDriver/commits/main
     @Doc       https://github.com/ewowi/ESP32-LedsDriver/
@@ -22,7 +22,7 @@
 #include "soc/gpio_struct.h"
 #include "rom/gpio.h"
 
-void LedsDriverESP32dev::setPinsDev() {
+void LedsDriverESP32D0::setPinsDev() {
     for (int i = 0; i < numPins; i++) {
         PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[pinConfig[i].gpio], PIN_FUNC_GPIO);
         gpio_set_direction((gpio_num_t)pinConfig[i].gpio, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
@@ -31,7 +31,7 @@ void LedsDriverESP32dev::setPinsDev() {
 }
 
 #include "esp_private/periph_ctrl.h" // for periph_module_enable (// #include "driver/periph_ctrl.h") deprecated
-void LedsDriverESP32dev::i2sInitDev() {
+void LedsDriverESP32D0::i2sInitDev() {
     if (I2S_DEVICE == 0)
     {
         i2s = &I2S0;
@@ -82,7 +82,7 @@ void LedsDriverESP32dev::i2sInitDev() {
     }
 }
 
-void LedsDriverESP32dev::i2sStop( LedsDriverESP32dev *cont) {
+void LedsDriverESP32D0::i2sStop( LedsDriverESP32D0 *cont) {
 
     esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
     
@@ -100,7 +100,7 @@ void LedsDriverESP32dev::i2sStop( LedsDriverESP32dev *cont) {
     }
 }
 
-void LedsDriverESP32dev::loadAndTranspose(LedsDriverESP32dev *driver) {
+void LedsDriverESP32D0::loadAndTranspose(LedsDriverESP32D0 *driver) {
     //cont->leds, cont->stripSize, cont->num_strips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->nb_components, cont->p_g, cont->p_r, cont->p_b);
     Lines secondPixel[driver->channelsPerLed];
     uint16_t *buffer;
@@ -163,12 +163,12 @@ void LedsDriverESP32dev::loadAndTranspose(LedsDriverESP32dev *driver) {
         driver->transpose16x1_noinline2(secondPixel[3].bytes, (uint16_t *)buffer + 3 * 3 * 8);
 }
 
-void LedsDriverESP32dev::LedDriverinterruptHandler(void *arg) {
+void LedsDriverESP32D0::LedDriverinterruptHandler(void *arg) {
     #ifdef DO_NOT_USE_INTERUPT
         REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
         return;
     #else
-        LedsDriverESP32dev *cont = (LedsDriverESP32dev *)arg;
+        LedsDriverESP32D0 *cont = (LedsDriverESP32D0 *)arg;
 
         if (!cont->__enableDriver) {
             REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
@@ -217,7 +217,7 @@ void LedsDriverESP32dev::LedDriverinterruptHandler(void *arg) {
     #endif
 }
 
-void PhysicalDriverESP32dev::startDriver() {
+void PhysicalDriverESP32D0::startDriver() {
     // from void __initled(uint8_t *leds, int *Pinsq, int num_strips, int num_led_per_strip)
 
     _gammab = 1;
@@ -284,7 +284,7 @@ void PhysicalDriverESP32dev::startDriver() {
     this->dmaBufferCount = dmaBufferCount;*/    
 }
 
-LedDriverDMABuffer *PhysicalDriverESP32dev::allocateDMABuffer(int bytes) {
+LedDriverDMABuffer *PhysicalDriverESP32D0::allocateDMABuffer(int bytes) {
     LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
 
     if (!b) {
@@ -313,14 +313,14 @@ LedDriverDMABuffer *PhysicalDriverESP32dev::allocateDMABuffer(int bytes) {
     return b;
 }
 
-void PhysicalDriverESP32dev::setPins() {
+void PhysicalDriverESP32D0::setPins() {
     setPinsDev();
 }
 
-void PhysicalDriverESP32dev::i2sInit() {
+void PhysicalDriverESP32D0::i2sInit() {
     i2sInitDev();
 
-    //Physical specific. @Yves, check PhysicalDriverESP32dev::i2sInit as they look pretty similar. Combine or parametrize?
+    //Physical specific. @Yves, check PhysicalDriverESP32D0::i2sInit as they look pretty similar. Combine or parametrize?
 
     i2s->clkm_conf.clka_en = 0;
 
@@ -354,7 +354,7 @@ void PhysicalDriverESP32dev::i2sInit() {
     esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &LedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
 }
 
-void PhysicalDriverESP32dev::initDMABuffers() {
+void PhysicalDriverESP32D0::initDMABuffers() {
     DMABuffersTampon[0] = allocateDMABuffer(channelsPerLed * 8 * 2 * 3); //the buffers for the
     DMABuffersTampon[1] = allocateDMABuffer(channelsPerLed * 8 * 2 * 3);
     DMABuffersTampon[2] = allocateDMABuffer(channelsPerLed * 8 * 2 * 3);
@@ -364,7 +364,7 @@ void PhysicalDriverESP32dev::initDMABuffers() {
     putdefaultones((uint16_t *)DMABuffersTampon[1]->buffer);
 }
 
-void PhysicalDriverESP32dev::putdefaultones(uint16_t *buffer) {
+void PhysicalDriverESP32D0::putdefaultones(uint16_t *buffer) {
     /*order to push the data to the pins
     0:D7
     1:1
@@ -397,7 +397,7 @@ void PhysicalDriverESP32dev::putdefaultones(uint16_t *buffer) {
     }
 }
 
-void VirtualDriverESP32dev::setPins() {
+void VirtualDriverESP32D0::setPins() {
     setPinsDev();
 
     if (latchPin == UINT8_MAX || clockPin == UINT8_MAX) {
@@ -413,7 +413,7 @@ void VirtualDriverESP32dev::setPins() {
 }
 
 #include "soc/rtc.h" // rtc_clk_apll_enable
-void VirtualDriverESP32dev::i2sInit() {
+void VirtualDriverESP32D0::i2sInit() {
     i2sInitDev();
 
     // i2s->sample_rate_conf.tx_bck_div_num = 1;
@@ -470,11 +470,11 @@ void VirtualDriverESP32dev::i2sInit() {
     i2s->timing.val = 0;
 }
 
-void VirtualDriverESP32dev::initDMABuffers() {
+void VirtualDriverESP32D0::initDMABuffers() {
     initDMABuffersVirtual(); // for all Virtual drivers, S3 and non S3
 }
 
-LedDriverDMABuffer *VirtualDriverESP32dev::allocateDMABuffer(int bytes) {
+LedDriverDMABuffer *VirtualDriverESP32D0::allocateDMABuffer(int bytes) {
     LedDriverDMABuffer * b = allocateDMABufferVirtual(bytes);
 
     //dev specific
@@ -490,7 +490,7 @@ LedDriverDMABuffer *VirtualDriverESP32dev::allocateDMABuffer(int bytes) {
     return b;
 }
 
-void VirtualDriverESP32dev::putdefaultlatch(uint16_t *buffer) {
+void VirtualDriverESP32D0::putdefaultlatch(uint16_t *buffer) {
     // printf("dd%d\n",NBIS2SERIALPINS);
     uint16_t mask1 = 1 << numPins;
     for (int i = 0; i < 24 * channelsPerLed; i++)
@@ -499,7 +499,7 @@ void VirtualDriverESP32dev::putdefaultlatch(uint16_t *buffer) {
     }
 }
 
-void VirtualDriverESP32dev::putdefaultones(uint16_t *buffer) {
+void VirtualDriverESP32D0::putdefaultones(uint16_t *buffer) {
     putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and non S3
 
     //virtual dev specific: 

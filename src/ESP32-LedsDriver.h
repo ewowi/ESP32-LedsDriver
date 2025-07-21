@@ -163,7 +163,7 @@ typedef union {
     #include "soc/i2s_struct.h" // for i2s_dev_t
     #include "soc/i2s_reg.h" // for I2S_IN_RST_M etc
 
-    class LedsDriverESP32dev: virtual public LedsDriver { //abstract class !
+    class LedsDriverESP32D0: virtual public LedsDriver { //abstract class !
     protected:
         const int deviceBaseIndex[2] = {I2S0O_DATA_OUT0_IDX, I2S1O_DATA_OUT0_IDX};
         void setPinsDev();
@@ -200,18 +200,18 @@ typedef union {
         volatile bool wasWaitingtofinish = false; //set by showPixels and waitDisplay, checked by i2sStop
         volatile bool transpose = false; //set true by showPixels, checked by LedDriverinterruptHandler and loadAndTranspose
         volatile int ledToDisplay; // showPixels, loadAndTranspose and transposeAll, LedDriverinterruptHandler
-        //DMABuffers used by loadAndTranspose, LedDriverinterruptHandler, also by PhysicalDriverESP32dev::initDMABuffers!!! Check if moved to here
+        //DMABuffers used by loadAndTranspose, LedDriverinterruptHandler, also by PhysicalDriverESP32D0::initDMABuffers!!! Check if moved to here
         LedDriverDMABuffer *DMABuffersTampon[4]; // an array of pointers!!!
         LedDriverDMABuffer **DMABuffersTransposed = NULL; // pointer to pointer
         volatile int dmaBufferActive = 0; //used by loadAndTranspose, LedDriverinterruptHandler
         int stripSize[16]; //used by loadAndTranspose, LedDriverinterruptHandler and showPixels
-        static void IRAM_ATTR i2sStop(LedsDriverESP32dev *cont); // used by LedDriverinterruptHandler
-        static void IRAM_ATTR loadAndTranspose(LedsDriverESP32dev *driver); //ewowi: driver as paramater is a nice trick to use class in static function!
+        static void IRAM_ATTR i2sStop(LedsDriverESP32D0 *cont); // used by LedDriverinterruptHandler
+        static void IRAM_ATTR loadAndTranspose(LedsDriverESP32D0 *driver); //ewowi: driver as paramater is a nice trick to use class in static function!
         static void IRAM_ATTR LedDriverinterruptHandler(void *arg); //ewowi: esp_intr_alloc requires static
     };
 
     //https://github.com/hpwit/I2SClocklessLedDriver
-    class PhysicalDriverESP32dev: public PhysicalDriver, public LedsDriverESP32dev {
+    class PhysicalDriverESP32D0: public PhysicalDriver, public LedsDriverESP32D0 {
 
         void startDriver() override; // commented most atm
         void setPins() override; // calls setPinsDev which is what we need
@@ -223,7 +223,7 @@ typedef union {
         void putdefaultones(uint16_t *buffer) override; //Phys dev specific
     };
     //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and non S3)
-    class VirtualDriverESP32dev: public VirtualDriver, public LedsDriverESP32dev {
+    class VirtualDriverESP32D0: public VirtualDriver, public LedsDriverESP32D0 {
     protected:
         const int deviceClockIndex[2] = {I2S0O_BCK_OUT_IDX, I2S1O_BCK_OUT_IDX};
         uint8_t DELTA_OFFSET_LATCH = 0;

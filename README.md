@@ -33,8 +33,8 @@ This has a number of advantages:
 Definition:
 
 ```cpp
-PhysicalDriverESP32dev ledsDriver;
-VirtualDriverESP32dev ledsDriver;
+PhysicalDriverESP32D0 ledsDriver;
+VirtualDriverESP32D0 ledsDriver;
 
 PhysicalDriverESP32S3 ledsDriver;
 VirtualDriverESP32S3 ledsDriver;
@@ -122,14 +122,14 @@ Future
         * virtual putdefaultones()
     * show()
 * CONFIG_IDF_TARGET_ESP32
-    * LedsDriverESP32dev
-        * PhysicalDriverESP32dev
+    * LedsDriverESP32D0
+        * PhysicalDriverESP32D0
             * setPins() 60%
             * i2sInit() 80% //todo LedDriverinterruptHandler implementation
             * initDMABuffers() 100%
             * allocateDMABuffer() 80% // not for FULL_DMA_BUFFER
             * putdefaultones() 100%
-        * VirtualDriverESP32dev
+        * VirtualDriverESP32D0
             * setPins() 60%
             * i2sInit() 80%
             * initDMABuffers() 100%
@@ -174,7 +174,7 @@ Run Physical or Virtual driver for all defined boards:
 | Board    | General | Physical | Virtual |
 |----------|---------|----------|---------|
 | **General** | LedsDriver* | PhysicalDriver* | VirtualDriver* |
-| **dev / wrover** | LedsDriverESP32dev* | PhysicalDriverESP32dev | VirtualDriverESP32dev |
+| **dev / wrover** | LedsDriverESP32D0* | PhysicalDriverESP32D0 | VirtualDriverESP32D0 |
 | **S3** | LedsDriverESP32S3* | PhysicalDriverESP32S3 | VirtualDriverESP32S3 |
 | **P4** | LedsDriverESP32P4* | PhysicalDriverESP32P4 | VirtualDriverESP32P4 |
 

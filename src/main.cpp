@@ -20,7 +20,7 @@
   #define NUM_PINS 10
   #define NUM_LEDSPERPIN 256
   #if CONFIG_IDF_TARGET_ESP32
-    PhysicalDriverESP32dev ledsDriver;
+    PhysicalDriverESP32D0 ledsDriver;
   #elif CONFIG_IDF_TARGET_ESP32S3
     PhysicalDriverESP32S3 ledsDriver;
   #elif CONFIG_IDF_TARGET_ESP32P4
@@ -30,7 +30,7 @@
   #define NUM_PINS 6
   #define NUM_LEDSPERPIN 256 * 8 // one pin uses shiftregister to drive 8 panels
   #if CONFIG_IDF_TARGET_ESP32
-    VirtualDriverESP32dev ledsDriver;
+    VirtualDriverESP32D0 ledsDriver;
   #elif CONFIG_IDF_TARGET_ESP32S3
     VirtualDriverESP32S3 ledsDriver;
   #elif CONFIG_IDF_TARGET_ESP32P4
