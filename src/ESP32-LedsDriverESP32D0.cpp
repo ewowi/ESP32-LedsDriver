@@ -22,7 +22,7 @@
 #include "soc/gpio_struct.h"
 #include "rom/gpio.h"
 
-void LedsDriverESP32D0::setPinsDev() {
+void LedsDriverESP32D0::setPinsD0() {
     for (int i = 0; i < numPins; i++) {
         PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[pinConfig[i].gpio], PIN_FUNC_GPIO);
         gpio_set_direction((gpio_num_t)pinConfig[i].gpio, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
@@ -31,7 +31,7 @@ void LedsDriverESP32D0::setPinsDev() {
 }
 
 #include "esp_private/periph_ctrl.h" // for periph_module_enable (// #include "driver/periph_ctrl.h") deprecated
-void LedsDriverESP32D0::i2sInitDev() {
+void LedsDriverESP32D0::i2sInitD0() {
     if (I2S_DEVICE == 0)
     {
         i2s = &I2S0;
@@ -63,7 +63,7 @@ void LedsDriverESP32D0::i2sInitDev() {
     i2s->sample_rate_conf.tx_bits_mod = 16; // Number of parallel bits/pins
     i2s->clkm_conf.val = 0;
 
-    // specifics for Physical and Virtual dev, see i2sInitDev of them
+    // specifics for Physical and Virtual dev, see i2sInitD0 of them
 
     // -- Create a semaphore to block execution until all the controllers are done
 
@@ -229,7 +229,8 @@ void PhysicalDriverESP32D0::startDriver() {
     // this->saveleds = leds; //ewowi: saveleds doesn't add anything, always same as leds
     // this->num_led_per_strip = num_led_per_strip; //ewowi: done by initLeds, using maxNrOfLedsPerPin
 
-    //ewowi: comment for the moment
+    //ewowi: comment for the moment, used in showPixels / #ifdef ENABLE_HARDWARE_SCROLL loadAndTranspose, implement that first
+
     // _offsetDisplay.offsetx = 0;
     // _offsetDisplay.offsety = 0;
     // _offsetDisplay.panel_width = num_led_per_strip;
@@ -237,7 +238,7 @@ void PhysicalDriverESP32D0::startDriver() {
     // _defaultOffsetDisplay = _offsetDisplay;
     // linewidth = num_led_per_strip;
     // this->num_strips = num_strips;
-    // this->dmaBufferCount = dmaBufferCount;
+    // this->dmaBufferCount = dmaBufferCount; // ewowi: not used for anything...
 
     ESP_LOGV(TAG,"xdelay:%d",__delay);
     #if HARDWARESPRITES == 1
@@ -314,11 +315,11 @@ LedDriverDMABuffer *PhysicalDriverESP32D0::allocateDMABuffer(int bytes) {
 }
 
 void PhysicalDriverESP32D0::setPins() {
-    setPinsDev();
+    setPinsD0();
 }
 
 void PhysicalDriverESP32D0::i2sInit() {
-    i2sInitDev();
+    i2sInitD0();
 
     //Physical specific. @Yves, check PhysicalDriverESP32D0::i2sInit as they look pretty similar. Combine or parametrize?
 
@@ -397,8 +398,108 @@ void PhysicalDriverESP32D0::putdefaultones(uint16_t *buffer) {
     }
 }
 
+void PhysicalDriverESP32D0::waitDisplay() {
+    if (isDisplaying == true ) {
+        wasWaitingtofinish = true;
+        ESP_LOGD(TAG, "already displaying... wait");
+        if(LedDriver_waitDisp==NULL) {
+            LedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
+        }
+
+        uint32_t __delay = (((maxNrOfLedsPerPin * 125 * 8 * channelsPerLed) /100000) +1 );
+        const TickType_t xDelay = __delay ;
+        xSemaphoreTake(LedDriver_waitDisp,xDelay);   
+    }
+    isDisplaying=true;
+}
+
+void PhysicalDriverESP32D0::i2sStart(LedDriverDMABuffer *startBuffer) {
+
+    i2sReset();
+    framesync = false;
+
+    // counti = 0; //ewowi: looks like doing nothing
+
+    (&I2S0)->lc_conf.val = I2S_OUT_DATA_BURST_EN | I2S_OUTDSCR_BURST_EN | I2S_OUT_DATA_BURST_EN;
+
+    (&I2S0)->out_link.addr = (uint32_t) & (startBuffer->descriptor);
+
+    (&I2S0)->out_link.start = 1;
+
+    (&I2S0)->int_clr.val = (&I2S0)->int_raw.val;
+
+    (&I2S0)->int_clr.val = (&I2S0)->int_raw.val;
+    (&I2S0)->int_ena.val = 0;
+
+    /*
+        If we do not use the regular showpixels, then no need to activate the interupt at the end of each pixels
+        */
+    //if(transpose)
+    (&I2S0)->int_ena.out_eof = 1;
+
+    (&I2S0)->int_ena.out_total_eof = 1;
+    esp_intr_enable(_gI2SClocklessDriver_intr_handle);
+
+    //We start the I2S
+    (&I2S0)->conf.tx_start = 1;
+
+    //Set the mode to indicate that we've started
+    isDisplaying = true;
+}
+
+void PhysicalDriverESP32D0::__showPixels() {
+
+    if (!__enableDriver) {
+        return;
+    }
+    #ifdef __HARDWARE_MAP
+        _hmapoff=_hmap;
+    #endif
+    #ifdef __HARDWARE_MAP_HARDWARE
+        _hmapoff=0;
+    #endif
+
+    if (leds == NULL) {
+        ESP_LOGE(TAG, "no leds buffer defined");
+        return;
+    }
+    ledToDisplay = 0;
+    transpose = true;
+    DMABuffersTampon[0]->descriptor.qe.stqe_next = &(DMABuffersTampon[1]->descriptor);
+    DMABuffersTampon[1]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
+    DMABuffersTampon[2]->descriptor.qe.stqe_next = &(DMABuffersTampon[0]->descriptor);
+    DMABuffersTampon[3]->descriptor.qe.stqe_next = 0;
+    dmaBufferActive = 0;
+
+    loadAndTranspose(this);
+
+    // __displayMode=dispmode;
+    dmaBufferActive = 1;
+    i2sStart(DMABuffersTampon[2]);
+    isDisplaying=true;
+    if (__displayMode == WAIT) {
+        isWaiting = true;
+        if (LedDriver_sem==NULL)
+            LedDriver_sem=xSemaphoreCreateBinary();
+        xSemaphoreTake(LedDriver_sem, portMAX_DELAY);
+    } else {
+        isWaiting = false;
+        isDisplaying = true;
+    }
+}
+
+void PhysicalDriverESP32D0::show() {
+    if (!__enableDriver)
+        return;
+    waitDisplay();
+    // leds=saveleds; //ewowi: looks not needed
+    // _offsetDisplay=_defaultOffsetDisplay; //ewowi: not implemented yet
+    __displayMode=WAIT; //ewowi: default for now
+    __showPixels();
+}
+
 void VirtualDriverESP32D0::setPins() {
-    setPinsDev();
+    setPinsD0();
 
     if (latchPin == UINT8_MAX || clockPin == UINT8_MAX) {
         ESP_LOGE(TAG, "call setLatchAndClockPin() needed!");
@@ -414,45 +515,46 @@ void VirtualDriverESP32D0::setPins() {
 
 #include "soc/rtc.h" // rtc_clk_apll_enable
 void VirtualDriverESP32D0::i2sInit() {
-    i2sInitDev();
+    i2sInitD0();
 
     // i2s->sample_rate_conf.tx_bck_div_num = 1;
-#ifdef __DL_CLK
-    // Serial.println("norml clock");
-    i2s->clkm_conf.clka_en = 0;
-    // rtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+    #ifdef __DL_CLK
+        // Serial.println("norml clock");
+        i2s->clkm_conf.clka_en = 0;
+        // rtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
 
-    // -- Data clock is computed as Base/(div_num + (div_b/div_a))
-    //    Base is 80Mhz, so 80/(3+ 7/6) = 19.2Mhz
+        // -- Data clock is computed as Base/(div_num + (div_b/div_a))
+        //    Base is 80Mhz, so 80/(3+ 7/6) = 19.2Mhz
 
-    i2s->clkm_conf.clkm_div_a = 6;   // CLOCK_DIVIDER_A;
-    i2s->clkm_conf.clkm_div_b = 7;   // CLOCK_DIVIDER_B;
-    i2s->clkm_conf.clkm_div_num = 3; // CLOCK_DIVIDER_N;
+        i2s->clkm_conf.clkm_div_a = 6;   // CLOCK_DIVIDER_A;
+        i2s->clkm_conf.clkm_div_b = 7;   // CLOCK_DIVIDER_B;
+        i2s->clkm_conf.clkm_div_num = 3; // CLOCK_DIVIDER_N;
 
-#else
-    // Serial.println("precise clock");
+    #else
+        // Serial.println("precise clock");
 
-#ifndef _20_MHZ_CLK
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    rtc_clk_apll_enable(true);
-    rtc_clk_apll_coeff_set(1, 31, 133, 7);
-#else
-    rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
-#endif
-#else
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    rtc_clk_apll_enable(true);
-    rtc_clk_apll_coeff_set(1, 0, 0, 8);
-#else
-    rtc_clk_apll_enable(true, 0, 0, 8, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
-#endif
-    // rtc_clk_apll_enable(true, 0, 0, 8, 1);
-#endif
-    i2s->clkm_conf.clka_en = 1;
-    i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
-    i2s->clkm_conf.clkm_div_b = 0;   // CLOCK_DIVIDER_B;
-    i2s->clkm_conf.clkm_div_num = 1; // CLOCK_DIVIDER_N;
-#endif
+    #ifndef _20_MHZ_CLK
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        rtc_clk_apll_enable(true);
+        rtc_clk_apll_coeff_set(1, 31, 133, 7);
+    #else
+        rtc_clk_apll_enable(true, 31, 133, 7, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+    #endif
+    #else
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        rtc_clk_apll_enable(true);
+        rtc_clk_apll_coeff_set(1, 0, 0, 8);
+    #else
+        rtc_clk_apll_enable(true, 0, 0, 8, 1); // 19.2Mhz 7 pins +1 latchrtc_clk_apll_enable(true, 31, 133,7, 1); //19.2Mhz 7 pins +1 latch
+    #endif
+        // rtc_clk_apll_enable(true, 0, 0, 8, 1);
+    #endif
+        i2s->clkm_conf.clka_en = 1;
+        i2s->clkm_conf.clkm_div_a = 1;   // CLOCK_DIVIDER_A;
+        i2s->clkm_conf.clkm_div_b = 0;   // CLOCK_DIVIDER_B;
+        i2s->clkm_conf.clkm_div_num = 1; // CLOCK_DIVIDER_N;
+    #endif
+
     i2s->fifo_conf.val = 0;
     i2s->fifo_conf.tx_fifo_mod_force_en = 1;
     i2s->fifo_conf.tx_fifo_mod = 1;  // 16-bit single channel data
@@ -471,13 +573,13 @@ void VirtualDriverESP32D0::i2sInit() {
 }
 
 void VirtualDriverESP32D0::initDMABuffers() {
-    initDMABuffersVirtual(); // for all Virtual drivers, S3 and non S3
+    initDMABuffersVirtual(); // for all Virtual drivers, S3 and D0
 }
 
 LedDriverDMABuffer *VirtualDriverESP32D0::allocateDMABuffer(int bytes) {
     LedDriverDMABuffer * b = allocateDMABufferVirtual(bytes);
 
-    //dev specific
+    //D0 specific
     b->descriptor.length = bytes;
     b->descriptor.size = bytes;
     b->descriptor.owner = 1;
@@ -500,9 +602,9 @@ void VirtualDriverESP32D0::putdefaultlatch(uint16_t *buffer) {
 }
 
 void VirtualDriverESP32D0::putdefaultones(uint16_t *buffer) {
-    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and non S3
+    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and D0
 
-    //virtual dev specific: 
+    //virtual D0 specific: 
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
 
     for (int j = 0; j < 8 * channelsPerLed; j++) {

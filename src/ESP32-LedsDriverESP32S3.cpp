@@ -346,7 +346,7 @@ void VirtualDriverESP32S3::i2sInit() {
 }
 
 void VirtualDriverESP32S3::initDMABuffers() {
-    initDMABuffersVirtual(); // for all Virtual drivers, used by non S3 and S3
+    initDMABuffersVirtual(); // for all Virtual drivers, used by D0 and S3
 
     // S3 specific
     for (int buff_num = 0; buff_num < __NB_DMA_BUFFER - 1; buff_num++) {
@@ -384,7 +384,7 @@ void VirtualDriverESP32S3::putdefaultlatch(uint16_t *buffer) {
 }
 
 void VirtualDriverESP32S3::putdefaultones(uint16_t *buffer) {
-    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and non S3
+    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and D0
 
     //virtual S3 specific:
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));

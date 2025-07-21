@@ -30,6 +30,8 @@ This has a number of advantages:
 * This library is setup as a **PlatformIO library**, allowing for easy compilation in VS Code.
 * Currently this repo is **not depending on FastLED**, e.g. no CRGB struct or leds array, just uint8_t. Not sure if this is an advantage but it sounds okay-ish
 
+Note: normal ESP32 board are called ESP32-D0 / ESP32D0 in this repo to distinguish it from other boards like ESP32-S3, ESP32-P4 etc. ESP32D0 covers both esp32dev and esp-wrover-kit. esp-wrover-kit is included as it is a normal ESP32 with PSRAM, making it an excellent candidate for driving lots of LEDs as the LEDs buffer is stored in PSRAM. 
+
 Definition:
 
 ```cpp
@@ -99,7 +101,7 @@ This project is 🚧:
 | Board    | General | Physical | Virtual |
 |----------|---------|----------|---------|
 | **General** | 40%  | 40% | 40% |
-| **dev / wrover** | 40% | 20% | 3% |
+| **D0** | 40% | 20% | 3% |
 | **S3** | 40% | 70% | 3% |
 | **P4** | 1% | 0% | 0% |
 
@@ -174,7 +176,7 @@ Run Physical or Virtual driver for all defined boards:
 | Board    | General | Physical | Virtual |
 |----------|---------|----------|---------|
 | **General** | LedsDriver* | PhysicalDriver* | VirtualDriver* |
-| **dev / wrover** | LedsDriverESP32D0* | PhysicalDriverESP32D0 | VirtualDriverESP32D0 |
+| **D0** | LedsDriverESP32D0* | PhysicalDriverESP32D0 | VirtualDriverESP32D0 |
 | **S3** | LedsDriverESP32S3* | PhysicalDriverESP32S3 | VirtualDriverESP32S3 |
 | **P4** | LedsDriverESP32P4* | PhysicalDriverESP32P4 | VirtualDriverESP32P4 |
 
@@ -185,6 +187,6 @@ Run Physical or Virtual driver for all defined boards:
 | Board    | General | Physical | Virtual |
 |----------|---------|----------|---------|
 | **General** | initLeds(), setPins(), setBrightness(), setColorCorrection(), show(), setPixel() | - | setLatchAndClockPin(), setClockSpeed(), dmaBuffer |
-| **dev / wrover** | deviceBaseIndex, setPinsDev() | - | deviceClockIndex |
+| **D0** | deviceBaseIndex, setPinsD0() | - | deviceClockIndex |
 | **S3** | - | - | signalsID |
 | **P4** | - | - | - |
