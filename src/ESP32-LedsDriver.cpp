@@ -121,6 +121,85 @@ void LedsDriver::setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t bl
         leds[channelNr + offsetWhite] = white;
 }
 
+#define AA (0x00AA00AAL)
+#define CC (0x0000CCCCL)
+#define FF (0xF0F0F0F0L)
+#define FF2 (0x0F0F0F0FL)
+
+void IRAM_ATTR LedsDriver::transpose16x1_noinline2(unsigned char *A, uint16_t *B) {
+
+    uint32_t x, y, x1, y1, t;
+
+    y = *(unsigned int *)(A);
+    if (numPins > 4)
+        x = *(unsigned int *)(A + 4);
+    else
+        x = 0;
+
+    if (numPins > 8)
+        y1 = *(unsigned int *)(A + 8);
+    else
+        y1 = 0;
+
+
+    if (numPins > 12)
+        x1 = *(unsigned int *)(A + 12);
+    else
+        x1 = 0;
+
+    // pre-transform x
+    if (numPins > 4) {
+        t = (x ^ (x >> 7)) & AA;
+        x = x ^ t ^ (t << 7);
+        t = (x ^ (x >> 14)) & CC;
+        x = x ^ t ^ (t << 14);
+    }
+
+    if (numPins > 12) {
+        t = (x1 ^ (x1 >> 7)) & AA;
+        x1 = x1 ^ t ^ (t << 7);
+        t = (x1 ^ (x1 >> 14)) & CC;
+        x1 = x1 ^ t ^ (t << 14);
+    }
+
+    // pre-transform y
+    t = (y ^ (y >> 7)) & AA;
+    y = y ^ t ^ (t << 7);
+    t = (y ^ (y >> 14)) & CC;
+    y = y ^ t ^ (t << 14);
+
+    if (numPins > 8) {
+        t = (y1 ^ (y1 >> 7)) & AA;
+        y1 = y1 ^ t ^ (t << 7);
+        t = (y1 ^ (y1 >> 14)) & CC;
+        y1 = y1 ^ t ^ (t << 14);
+    }
+
+    // final transform
+    t = (x & FF) | ((y >> 4) & FF2);
+    y = ((x << 4) & FF) | (y & FF2);
+    x = t;
+
+    t = (x1 & FF) | ((y1 >> 4) & FF2);
+    y1 = ((x1 << 4) & FF) | (y1 & FF2);
+    x1 = t;
+
+    *((uint16_t *)(B)) =
+        (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 3)) =
+        (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
+    *((uint16_t *)(B + 6)) =
+        (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 9)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
+    *((uint16_t *)(B + 12)) =
+        (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
+    *((uint16_t *)(B + 15)) =
+        (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
+    *((uint16_t *)(B + 18)) =
+        (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
+    *((uint16_t *)(B + 21)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
+}
+
 void VirtualDriver::startDriver() {
     // to do
 }

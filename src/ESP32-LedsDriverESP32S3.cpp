@@ -108,22 +108,20 @@ void PhysicalDriverESP32S3::i2sInit() {
 
 // #include "esp_lcd_panel_io.h" // for esp_lcd_panel_io_handle_t etc
 
+// io_config.on_color_trans_done requires static function
 // bool DRIVER_READY = true;
-volatile bool isDisplaying = false;
-volatile bool iswaiting = false;
-static bool IRAM_ATTR flush_readyStatic(esp_lcd_panel_io_handle_t panel_io,
+static bool IRAM_ATTR flush_ready(esp_lcd_panel_io_handle_t panel_io,
                                   esp_lcd_panel_io_event_data_t *edata,
                                   void *user_ctx) {
 
+    PhysicalDriverESP32S3 *cont =
+        (PhysicalDriverESP32S3 *)user_ctx;
+    // cont->testcount++; //Yves, what is this doing ?: (looks like nothing)... is later used in ...
     // DRIVER_READY = true; //@yves: looks like doing nothing
-    isDisplaying = false;
-    //@yves, what is this doing ?: (looks like nothing)... is later used in ...
-    // I2SClocklessLedDriveresp32S3 *cont =
-    //     (I2SClocklessLedDriveresp32S3 *)user_ctx;
-    // cont->testcount++;
-    if (iswaiting) {
+    cont->isDisplaying = false;
+    if (cont->isWaiting) {
         portBASE_TYPE HPTaskAwoken = 0;
-        iswaiting = false;
+        cont->isWaiting = false;
         xSemaphoreGiveFromISR(I2SClocklessLedDriverS3_sem, &HPTaskAwoken);
         if (HPTaskAwoken == pdTRUE)
             portYIELD_FROM_ISR(HPTaskAwoken);
@@ -197,94 +195,9 @@ void PhysicalDriverESP32S3::initDMABuffers() {
     io_config.lcd_param_bits = 0;
     io_config.user_ctx = this;
 
-    io_config.on_color_trans_done = flush_readyStatic;
+    io_config.on_color_trans_done = flush_ready;
     ESP_ERROR_CHECK(
         esp_lcd_new_panel_io_i80(i80_bus, &io_config, &led_io_handle));
-}
-
-typedef union {
-    uint8_t bytes[16];
-    uint32_t shorts[8];
-    uint32_t raw[2];
-} Lines;
-
-#define AA (0x00AA00AAL)
-#define CC (0x0000CCCCL)
-#define FF (0xF0F0F0F0L)
-#define FF2 (0x0F0F0F0FL)
-
-void IRAM_ATTR PhysicalDriverESP32S3::transpose16x1_noinline2(unsigned char *A, uint16_t *B) {
-
-    uint32_t x, y, x1, y1, t;
-
-    y = *(unsigned int *)(A);
-    if (numPins > 4)
-        x = *(unsigned int *)(A + 4);
-    else
-        x = 0;
-
-    if (numPins > 8)
-        y1 = *(unsigned int *)(A + 8);
-    else
-        y1 = 0;
-
-
-    if (numPins > 12)
-        x1 = *(unsigned int *)(A + 12);
-    else
-        x1 = 0;
-
-    // pre-transform x
-    if (numPins > 4) {
-        t = (x ^ (x >> 7)) & AA;
-        x = x ^ t ^ (t << 7);
-        t = (x ^ (x >> 14)) & CC;
-        x = x ^ t ^ (t << 14);
-    }
-
-    if (numPins > 12) {
-        t = (x1 ^ (x1 >> 7)) & AA;
-        x1 = x1 ^ t ^ (t << 7);
-        t = (x1 ^ (x1 >> 14)) & CC;
-        x1 = x1 ^ t ^ (t << 14);
-    }
-
-    // pre-transform y
-    t = (y ^ (y >> 7)) & AA;
-    y = y ^ t ^ (t << 7);
-    t = (y ^ (y >> 14)) & CC;
-    y = y ^ t ^ (t << 14);
-
-    if (numPins > 8) {
-        t = (y1 ^ (y1 >> 7)) & AA;
-        y1 = y1 ^ t ^ (t << 7);
-        t = (y1 ^ (y1 >> 14)) & CC;
-        y1 = y1 ^ t ^ (t << 14);
-    }
-
-    // final transform
-    t = (x & FF) | ((y >> 4) & FF2);
-    y = ((x << 4) & FF) | (y & FF2);
-    x = t;
-
-    t = (x1 & FF) | ((y1 >> 4) & FF2);
-    y1 = ((x1 << 4) & FF) | (y1 & FF2);
-    x1 = t;
-
-    *((uint16_t *)(B)) =
-        (uint16_t)(((x & 0xff000000) >> 8 | ((x1 & 0xff000000))) >> 16);
-    *((uint16_t *)(B + 3)) =
-        (uint16_t)(((x & 0xff0000) >> 16 | ((x1 & 0xff0000) >> 8)));
-    *((uint16_t *)(B + 6)) =
-        (uint16_t)(((x & 0xff00) | ((x1 & 0xff00) << 8)) >> 8);
-    *((uint16_t *)(B + 9)) = (uint16_t)((x & 0xff) | ((x1 & 0xff) << 8));
-    *((uint16_t *)(B + 12)) =
-        (uint16_t)(((y & 0xff000000) >> 8 | ((y1 & 0xff000000))) >> 16);
-    *((uint16_t *)(B + 15)) =
-        (uint16_t)(((y & 0xff0000) | ((y1 & 0xff0000) << 8)) >> 16);
-    *((uint16_t *)(B + 18)) =
-        (uint16_t)(((y & 0xff00) | ((y1 & 0xff00) << 8)) >> 8);
-    *((uint16_t *)(B + 21)) = (uint16_t)((y & 0xff) | ((y1 & 0xff) << 8));
 }
 
 void PhysicalDriverESP32S3::transposeAll(uint16_t *ledoutput) {
@@ -329,7 +242,7 @@ void PhysicalDriverESP32S3::show() {
     transposeAll(buffers[currentframe]);
     if (isDisplaying) {
         // Serial.println("on display dejà");
-        iswaiting = true;
+        isWaiting = true;
         if (I2SClocklessLedDriverS3_sem == NULL)
             I2SClocklessLedDriverS3_sem = xSemaphoreCreateBinary();
         xSemaphoreTake(I2SClocklessLedDriverS3_sem, portMAX_DELAY);
@@ -351,6 +264,12 @@ void PhysicalDriverESP32S3::show() {
 }
 
 void VirtualDriverESP32S3::setPins() {
+
+    if (latchPin == UINT8_MAX || clockPin == UINT8_MAX) {
+        ESP_LOGE(TAG, "call setLatchAndClockPin() needed!");
+        return;
+    }
+
     for (int i = 0; i < numPins; i++) {
         esp_rom_gpio_connect_out_signal(pinConfig[i].gpio, signalsID[i], false, false);
         gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pinConfig[i].gpio], PIN_FUNC_GPIO);

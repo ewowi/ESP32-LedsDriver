@@ -82,6 +82,208 @@ void LedsDriverESP32dev::i2sInitDev() {
     }
 }
 
+void LedsDriverESP32dev::i2sStop( LedsDriverESP32dev *cont) {
+
+    esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
+    
+    ets_delay_us(16);
+
+    (&I2S0)->conf.tx_start = 0;
+    while( (&I2S0)->conf.tx_start ==1) {}
+    cont->i2sReset();
+        
+    cont->isDisplaying = false;
+
+    if (cont->wasWaitingtofinish) {
+        cont->wasWaitingtofinish = false;
+        xSemaphoreGive( cont->LedDriver_waitDisp);
+    }
+}
+
+void LedsDriverESP32dev::loadAndTranspose(LedsDriverESP32dev *driver) {
+    //cont->leds, cont->stripSize, cont->num_strips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->nb_components, cont->p_g, cont->p_r, cont->p_b);
+    Lines secondPixel[driver->channelsPerLed];
+    uint16_t *buffer;
+    if (driver->transpose)
+        buffer=(uint16_t *)driver->DMABuffersTampon[driver->dmaBufferActive]->buffer;
+    else
+        buffer=(uint16_t *)driver->DMABuffersTransposed[driver->dmaBufferActive]->buffer;
+
+    uint16_t led_tmp=driver->ledToDisplay;
+    #ifdef __HARDWARE_MAP
+        //led_tmp=driver->ledToDisplay*driver->numPins;
+    #endif
+    memset(secondPixel,0,sizeof(secondPixel));
+    #ifdef _LEDMAPPING
+        //#ifdef __SOFTWARE_MAP
+            uint8_t *poli ;
+        //#endif
+    #else
+        uint8_t *poli = driver->leds + driver->ledToDisplay * driver->channelsPerLed;
+    #endif
+    for (int i = 0; i < driver->numPins; i++) {
+
+        if (driver->ledToDisplay < driver->stripSize[i]) {
+            #ifdef _LEDMAPPING
+                #ifdef __SOFTWARE_MAP
+                    poli = driver->leds + driver->mapLed(led_tmp) * driver->channelsPerLed;
+                #endif
+                #ifdef __HARDWARE_MAP
+                    poli = driver->leds + *(driver->_hmapoff);
+                #endif
+                #ifdef __HARDWARE_MAP_PROGMEM
+                    poli = driver->leds + pgm_read_word_near(driver->_hmap + driver->_hmapoff);
+                #endif
+            #endif
+            secondPixel[driver->offsetGreen].bytes[i] = driver->__green_map[*(poli + 1)];
+            secondPixel[driver->offsetRed].bytes[i] = driver->__red_map[*(poli + 0)];
+            secondPixel[driver->offsetBlue].bytes[i] =  driver->__blue_map[*(poli + 2)];
+            if (driver->channelsPerLed > 3)
+                secondPixel[driver->offsetWhite].bytes[i] = driver->__white_map[*(poli + 3)];
+            #ifdef __HARDWARE_MAP
+                driver->_hmapoff++;
+            #endif
+            #ifdef __HARDWARE_MAP_PROGMEM
+                driver->_hmapoff++;
+            #endif
+        }
+        #ifdef _LEDMAPPING
+            #ifdef __SOFTWARE_MAP
+                led_tmp+=driver->stripSize[i];
+            #endif
+        #else
+            poli += driver->stripSize[i]* driver->channelsPerLed;
+        #endif
+    }
+
+    driver->transpose16x1_noinline2(secondPixel[0].bytes, (uint16_t *)buffer);
+    driver->transpose16x1_noinline2(secondPixel[1].bytes, (uint16_t *)buffer + 3 * 8);
+    driver->transpose16x1_noinline2(secondPixel[2].bytes, (uint16_t *)buffer + 2 * 3 * 8);
+    if (driver->channelsPerLed > 3)
+        driver->transpose16x1_noinline2(secondPixel[3].bytes, (uint16_t *)buffer + 3 * 3 * 8);
+}
+
+void LedsDriverESP32dev::LedDriverinterruptHandler(void *arg) {
+    #ifdef DO_NOT_USE_INTERUPT
+        REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
+        return;
+    #else
+        LedsDriverESP32dev *cont = (LedsDriverESP32dev *)arg;
+
+        if (!cont->__enableDriver) {
+            REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
+            // cont->i2sStop();
+            i2sStop(cont);
+            return;
+        }
+
+        if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_EOF_INT_ST_S, I2S_OUT_EOF_INT_ST_S)) {
+            cont->framesync = !cont->framesync;
+
+            if (cont->transpose) {
+                // cont->ledToDisplay++; //warning: '++' expression of 'volatile'-qualified type is deprecated 
+                cont->ledToDisplay += 1; //ewowi: okay, compiler happy ;-)
+                if (cont->ledToDisplay < cont->maxNrOfLedsPerPin) {
+
+                    loadAndTranspose(cont);
+            
+                    if (cont->ledToDisplay == cont->maxNrOfLedsPerPin - 3) { //here it's not -1 because it takes time top have the change into account and it reread the buufer
+                        cont->DMABuffersTampon[cont->dmaBufferActive]->descriptor.qe.stqe_next = &(cont->DMABuffersTampon[3]->descriptor);
+                    }
+                    cont->dmaBufferActive = (cont->dmaBufferActive + 1) % 2;
+                }
+            }
+            else {
+                if (cont->framesync) {
+                    portBASE_TYPE HPTaskAwoken = 0;
+                    xSemaphoreGiveFromISR(cont->LedDriver_semSync, &HPTaskAwoken);
+                    if (HPTaskAwoken == pdTRUE)
+                        portYIELD_FROM_ISR();
+                }
+            }
+        }
+
+        if (GET_PERI_REG_BITS(I2S_INT_ST_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ST_S, I2S_OUT_TOTAL_EOF_INT_ST_S)) {           
+            // cont->i2sStop();
+            i2sStop(cont);
+            if (cont->isWaiting) {
+                portBASE_TYPE HPTaskAwoken = 0;
+                xSemaphoreGiveFromISR(cont->LedDriver_sem, &HPTaskAwoken);
+                if (HPTaskAwoken == pdTRUE)
+                    portYIELD_FROM_ISR();
+            }
+        }
+        REG_WRITE(I2S_INT_CLR_REG(0), (REG_READ(I2S_INT_RAW_REG(0)) & 0xffffffc0) | 0x3f);
+    #endif
+}
+
+void PhysicalDriverESP32dev::startDriver() {
+    // from void __initled(uint8_t *leds, int *Pinsq, int num_strips, int num_led_per_strip)
+
+    _gammab = 1;
+    _gammar = 1;
+    _gammag = 1;
+    _gammaw = 1;
+    // startleds = 0; //ewowi: not used
+    // this->leds = leds; //ewowi: done by initLeds
+    // this->saveleds = leds; //ewowi: saveleds doesn't add anything, always same as leds
+    // this->num_led_per_strip = num_led_per_strip; //ewowi: done by initLeds, using maxNrOfLedsPerPin
+
+    //ewowi: comment for the moment
+    // _offsetDisplay.offsetx = 0;
+    // _offsetDisplay.offsety = 0;
+    // _offsetDisplay.panel_width = num_led_per_strip;
+    // _offsetDisplay.panel_height = 9999;
+    // _defaultOffsetDisplay = _offsetDisplay;
+    // linewidth = num_led_per_strip;
+    // this->num_strips = num_strips;
+    // this->dmaBufferCount = dmaBufferCount;
+
+    ESP_LOGV(TAG,"xdelay:%d",__delay);
+    #if HARDWARESPRITES == 1
+        //Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
+        target = (uint16_t *)malloc(maxNrOfLedsPerPin * numPins * 2 + 2);
+    #endif
+
+    #ifdef __HARDWARE_MAP
+        #ifndef __NON_HEAP
+        _hmap=(uint16_t *)malloc(  total_leds * 2);
+        #endif
+        if(!_hmap) {
+            ESP_LOGE(TAG,"no memory for the hamp");
+            return;
+        }
+        else {
+            ESP_LOGE(TAG,"trying to map");
+            /*
+            for(int leddisp=0;leddisp<maxNrOfLedsPerPin;leddisp++)
+            {
+                for (int i = 0; i < numPins; i++)
+                {
+                    _hmap[i+leddisp*numPins]=mapLed(leddisp+i*maxNrOfLedsPerPin)*channelsPerLed;
+                }
+            }
+            */
+            //int offset=0;
+            createhardwareMap();
+        }
+    #endif
+    setBrightness(255);
+    /*
+    dmaBufferCount = 2;
+    this->leds = leds;
+    this->saveleds = leds;
+    this->num_led_per_strip = num_led_per_strip;
+    _offsetDisplay.offsetx = 0;
+    _offsetDisplay.offsety = 0;
+    _offsetDisplay.panel_width = num_led_per_strip;
+    _offsetDisplay.panel_height = 9999;
+    _defaultOffsetDisplay = _offsetDisplay;
+    linewidth = num_led_per_strip;
+    this->num_strips = num_strips;
+    this->dmaBufferCount = dmaBufferCount;*/    
+}
+
 LedDriverDMABuffer *PhysicalDriverESP32dev::allocateDMABuffer(int bytes) {
     LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
 
@@ -197,6 +399,11 @@ void PhysicalDriverESP32dev::putdefaultones(uint16_t *buffer) {
 
 void VirtualDriverESP32dev::setPins() {
     setPinsDev();
+
+    if (latchPin == UINT8_MAX || clockPin == UINT8_MAX) {
+        ESP_LOGE(TAG, "call setLatchAndClockPin() needed!");
+        return;
+    }
 
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[latchPin], PIN_FUNC_GPIO);
     gpio_set_direction((gpio_num_t)latchPin, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);

@@ -24,8 +24,10 @@ This has a number of advantages:
 * Replacing #define variables where possible into class variables so they become **runtime configurable** instead of a new compilation for each config (e.g. num strips, num leds per strip, color order, pins, dmaBuffer etc etc)
 * Have a **unified interface** for all of these libraries so it is easy to switch driver and #ifdef with different ESP32's:
 * Sharing code used in all libraries (which were in above repos sometimes slightly different) -> **easier maintenance**.
+* **Simplification of code** e.g. by using default arguments: amount of different initLed() functions reduced to 1! (There are many initLed() functions in the different repos).
 * Splitting .h into .h and .cpp libraries allowing for **faster compile and no duplicate definition errors**. It also makes things easier to read.
 * Allow for **new drivers e.g. physical and virtual for ESP32-P4** without creating too many repo's
+* This library is setup as a **PlatformIO library**, allowing for easy compilation in VS Code.
 * Currently this repo is **not depending on FastLED**, e.g. no CRGB struct or leds array, just uint8_t. Not sure if this is an advantage but it sounds okay-ish
 
 Definition:
@@ -76,12 +78,15 @@ Behind the scenes the following functions are implemented for each driver:
     * startDriver();
     * setPins();
     * i2sInit();
+        * i2sReset()
+        * i2sReset_DMA()
+        * i2sReset_FIFO()
     * initDMABuffers();
-        * allocateDMABuffer
-        * putdefaultlatch
-        * putdefaultones
+        * allocateDMABuffer()
+        * putdefaultlatch()
+        * putdefaultones()
 * show
-    * transposeAll ... 
+    * transposeAll / loadAndTranspose ... 
 
 
 This repo is tuned to be **easy to include in other repo's**:

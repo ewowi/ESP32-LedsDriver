@@ -73,6 +73,8 @@ protected:
     virtual LedDriverDMABuffer *allocateDMABuffer(int bytes);
     virtual void putdefaultlatch(uint16_t *buffer);
     virtual void putdefaultones(uint16_t *buffer);
+
+    void transpose16x1_noinline2(unsigned char *A, uint16_t *B); // will be used by all boards, see loadAndTranspose and transposeAll
 public:
 
     //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
@@ -90,6 +92,10 @@ public:
 
     //sets RGB(W) values of a LED
     void setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t blue, uint8_t white = UINT8_MAX);
+
+    //public so also static functions using cont can use it...
+    volatile bool isDisplaying = false; // used in i2sStart and i2sStop, in showPixel, show, flush ready
+    volatile bool isWaiting = false;
 };
 
 
@@ -119,8 +125,8 @@ static clock_speed clock_800KHZ = {6, 4, 1};
 //specifics for Virtual Drivers!! (all boards)
 class VirtualDriver: virtual public LedsDriver { //abstract class !
 protected:
-    uint8_t latchPin = 46; //46 for S3, 27 for ESP32 (wrover)
-    uint8_t clockPin = 3; //3 for S3, 26 for ESP32 (wrover)
+    uint8_t latchPin = UINT8_MAX; //46 for S3, 27 for ESP32 (wrover)
+    uint8_t clockPin = UINT8_MAX; //3 for S3, 26 for ESP32 (wrover)
     clock_speed clockSpeed = clock_800KHZ; //🔥 only for virtual? 
     uint8_t dmaBuffer = 30;
     uint8_t NUM_VIRT_PINS = 7;
@@ -144,6 +150,13 @@ public:
         this->clockSpeed = clockSpeed;
     }
 };
+
+//Lines used by dev and S3 (loadAndTranspose and transposeAll, secondPixel)
+typedef union {
+    uint8_t bytes[16];
+    uint32_t shorts[8];
+    uint32_t raw[2];
+} Lines;
 
 #ifdef CONFIG_IDF_TARGET_ESP32
     //specific for ESP32 devices!! (Physical and Virtual)
@@ -180,20 +193,32 @@ public:
         int interruptSource;
         int i2s_base_pin_index;
         void i2sInitDev();
-        static void IRAM_ATTR LedDriverinterruptHandler(void *arg) {
-            //todo
-        };
+
+        intr_handle_t _gI2SClocklessDriver_intr_handle; //i2sInit / esp_intr_alloc, start and stop in i2sStart / esp_intr_enable and i2sStop / esp_intr_disable
+        volatile bool __enableDriver= true; //checked in LedDriverinterruptHandler and showPixels (Yves: but never set too false!!!)
+        volatile bool framesync = false; //set true by i2sStart, toggled by LedDriverinterruptHandler
+        volatile bool wasWaitingtofinish = false; //set by showPixels and waitDisplay, checked by i2sStop
+        volatile bool transpose = false; //set true by showPixels, checked by LedDriverinterruptHandler and loadAndTranspose
+        volatile int ledToDisplay; // showPixels, loadAndTranspose and transposeAll, LedDriverinterruptHandler
+        //DMABuffers used by loadAndTranspose, LedDriverinterruptHandler, also by PhysicalDriverESP32dev::initDMABuffers!!! Check if moved to here
+        LedDriverDMABuffer *DMABuffersTampon[4]; // an array of pointers!!!
+        LedDriverDMABuffer **DMABuffersTransposed = NULL; // pointer to pointer
+        volatile int dmaBufferActive = 0; //used by loadAndTranspose, LedDriverinterruptHandler
+        int stripSize[16]; //used by loadAndTranspose, LedDriverinterruptHandler and showPixels
+        static void IRAM_ATTR i2sStop(LedsDriverESP32dev *cont); // used by LedDriverinterruptHandler
+        static void IRAM_ATTR loadAndTranspose(LedsDriverESP32dev *driver); //ewowi: driver as paramater is a nice trick to use class in static function!
+        static void IRAM_ATTR LedDriverinterruptHandler(void *arg); //ewowi: esp_intr_alloc requires static
     };
 
     //https://github.com/hpwit/I2SClocklessLedDriver
     class PhysicalDriverESP32dev: public PhysicalDriver, public LedsDriverESP32dev {
-        void setPins() override;
 
-        intr_handle_t _gI2SClocklessDriver_intr_handle;
+        void startDriver() override; // commented most atm
+        void setPins() override; // calls setPinsDev which is what we need
+
         void i2sInit() override; //i2sInitDev + Physical specific
 
         void initDMABuffers() override; // allocateDMABuffer + putdefaultones
-        LedDriverDMABuffer *DMABuffersTampon[4]; // an array of pointers!!!
         LedDriverDMABuffer *allocateDMABuffer(int bytes); //Phys dev specific
         void putdefaultones(uint16_t *buffer) override; //Phys dev specific
     };
@@ -233,7 +258,6 @@ public:
         void initDMABuffers() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::__initLed()
 
         //used in show
-        void transpose16x1_noinline2(unsigned char *A, uint16_t *B);
         void transposeAll(uint16_t *ledoutput);
 
     public:
