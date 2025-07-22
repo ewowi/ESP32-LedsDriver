@@ -122,7 +122,7 @@ void LedsDriverESP32D0::i2sStop(LedsDriverESP32D0 *cont) {
 }
 
 void LedsDriverESP32D0::loadAndTranspose(LedsDriverESP32D0 *driver) {
-    //cont->leds, cont->stripSize, cont->num_strips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->nb_components, cont->p_g, cont->p_r, cont->p_b);
+    //cont->leds, cont->num_strips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->nb_components, cont->p_g, cont->p_r, cont->p_b);
     Lines secondPixel[driver->channelsPerLed];
     uint16_t *buffer;
     if (driver->transpose)
@@ -144,7 +144,7 @@ void LedsDriverESP32D0::loadAndTranspose(LedsDriverESP32D0 *driver) {
     #endif
     for (int i = 0; i < driver->numPins; i++) {
 
-        if (driver->ledToDisplay < driver->stripSize[i]) {
+        if (driver->ledToDisplay < driver->pinConfig[i].nrOfLeds) {
             #ifdef _LEDMAPPING
                 #ifdef __SOFTWARE_MAP
                     poli = driver->leds + driver->mapLed(led_tmp) * driver->channelsPerLed;
@@ -170,10 +170,10 @@ void LedsDriverESP32D0::loadAndTranspose(LedsDriverESP32D0 *driver) {
         }
         #ifdef _LEDMAPPING
             #ifdef __SOFTWARE_MAP
-                led_tmp+=driver->stripSize[i];
+                led_tmp+=driver->pinConfig[i].nrOfLeds;
             #endif
         #else
-            poli += driver->stripSize[i]* driver->channelsPerLed;
+            poli += driver->pinConfig[i].nrOfLeds* driver->channelsPerLed;
         #endif
     }
 

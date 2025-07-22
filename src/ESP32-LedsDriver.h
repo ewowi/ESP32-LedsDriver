@@ -190,7 +190,6 @@ typedef union {
         LedDriverDMABuffer *DMABuffersTampon[4]; // an array of pointers!!!
         LedDriverDMABuffer **DMABuffersTransposed = NULL; // pointer to pointer
         volatile int dmaBufferActive = 0; //used by loadAndTranspose, LedDriverinterruptHandler
-        int stripSize[16]; //used by loadAndTranspose, LedDriverinterruptHandler and showPixels
         static void IRAM_ATTR i2sStop(LedsDriverESP32D0 *cont); // used by LedDriverinterruptHandler
         static void IRAM_ATTR loadAndTranspose(LedsDriverESP32D0 *driver); //ewowi: driver as paramater is a nice trick to use class in static function!
         static void IRAM_ATTR LedDriverinterruptHandler(void *arg); //ewowi: esp_intr_alloc requires static
