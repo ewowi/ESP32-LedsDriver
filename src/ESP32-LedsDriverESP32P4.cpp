@@ -9,6 +9,8 @@
     @license   For non MIT usage, commercial licenses must be purchased. Contact us for more information.
 **/
 
+//in this .cpp only functions specific for P4, both Physical and Virtual: LedsDriverESP32P4 (not yet), PhysicalDriverESP32P4 and VirtualDriverESP32P4
+
 #ifdef CONFIG_IDF_TARGET_ESP32P4
 
 #include "ESP32-LedsDriver.h"

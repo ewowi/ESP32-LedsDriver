@@ -9,6 +9,8 @@
     @license   For non MIT usage, commercial licenses must be purchased. Contact us for more information.
 **/
 
+//in this .cpp only functions specific for S3, both Physical and Virtual: LedsDriverESP32S3 (not yet), PhysicalDriverESP32S3 and VirtualDriverESP32S3
+
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
 #include "ESP32-LedsDriver.h"
@@ -384,7 +386,7 @@ void VirtualDriverESP32S3::putdefaultlatch(uint16_t *buffer) {
 }
 
 void VirtualDriverESP32S3::putdefaultones(uint16_t *buffer) {
-    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and D0
+    putdefaultonesVirtual(buffer); // for all Virtual drivers, D0 and S3
 
     //virtual S3 specific:
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));

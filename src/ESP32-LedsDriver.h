@@ -106,8 +106,10 @@ public:
 // See also README for class structure
 
 //specifics for Physical Drivers!! (all boards)
-class PhysicalDriver: virtual public LedsDriver { //abstract class !
+class PhysicalDriver: virtual public LedsDriver { //virtual class !
     // no specifics yet
+    //initDMABuffers and allocateDMABuffer is done by derived classes
+    //not true: LedsDriver (for all boards, physical and virtual ...)
 };
 
 typedef struct
@@ -123,7 +125,7 @@ static clock_speed clock_1000KHZ = {5, 1, 0};
 static clock_speed clock_800KHZ = {6, 4, 1};
 
 //specifics for Virtual Drivers!! (all boards)
-class VirtualDriver: virtual public LedsDriver { //abstract class !
+class VirtualDriver: virtual public LedsDriver { //virtual class !
 protected:
     uint8_t latchPin = UINT8_MAX; //46 for S3, 27 for ESP32-D0 (wrover)
     uint8_t clockPin = UINT8_MAX; //3 for S3, 26 for ESP32-D0 (wrover)
@@ -134,21 +136,16 @@ protected:
     uint8_t _DMA_EXTENSTION = 0;
     LedDriverDMABuffer **DMABuffersTampon; //[__NB_DMA_BUFFER + 2];
 
-    void startDriver(); // todo, both for S3 and D0 - and P4?
+    void startDriver(); // to do, both for D0 and S3 - and P4?
 
-    void initDMABuffersVirtual();
+    void initDMABuffersVirtual(); //Virtual does things slightly different with DMA e.g. use LedDriverDMABuffer ** instead of LedDriverDMABuffer *
 
     LedDriverDMABuffer *allocateDMABufferVirtual(int bytes);
 
     void putdefaultonesVirtual(uint16_t *buffer);
 public:
-    void setLatchAndClockPin(uint8_t latchPin, uint8_t clockPin) {
-        this->latchPin = latchPin;
-        this->clockPin = clockPin;
-    }
-    void setClockSpeed( clock_speed clockSpeed) {
-        this->clockSpeed = clockSpeed;
-    }
+    void setLatchAndClockPin(uint8_t latchPin, uint8_t clockPin);
+    void setClockSpeed( clock_speed clockSpeed);
 };
 
 //Lines used by D0 and S3 (loadAndTranspose and transposeAll, secondPixel)
@@ -163,28 +160,16 @@ typedef union {
     #include "soc/i2s_struct.h" // for i2s_dev_t
     #include "soc/i2s_reg.h" // for I2S_IN_RST_M etc
 
-    class LedsDriverESP32D0: virtual public LedsDriver { //abstract class !
+    class LedsDriverESP32D0: virtual public LedsDriver { //virtual class !
     protected:
         const int deviceBaseIndex[2] = {I2S0O_DATA_OUT0_IDX, I2S1O_DATA_OUT0_IDX};
         void setPinsD0();
+        
         i2s_dev_t *i2s;
-        void IRAM_ATTR i2sReset() { // for physical and virtual D0
-            const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
-            (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
-            (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
-            const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
-            (&I2S0)->conf.val |= conf_reset_flags;
-            (&I2S0)->conf.val &= ~conf_reset_flags;
-        }
-        void i2sReset_DMA() {
-            (&I2S0)->lc_conf.out_rst = 1;
-            (&I2S0)->lc_conf.out_rst = 0;
-        }
+        void IRAM_ATTR i2sReset(); // for physical and virtual D0
+        void i2sReset_DMA();
+        void i2sReset_FIFO();
 
-        void i2sReset_FIFO() {
-            (&I2S0)->conf.tx_fifo_reset = 1;
-            (&I2S0)->conf.tx_fifo_reset = 0;
-        }
         volatile xSemaphoreHandle LedDriver_sem = NULL;
         volatile xSemaphoreHandle LedDriver_semSync = NULL;
         volatile xSemaphoreHandle LedDriver_semDisp = NULL;
@@ -238,7 +223,7 @@ typedef union {
         void show() override; //showPixel in I2SClocklessLedDriver
     };
 
-    //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and D0)
+    //https://github.com/hpwit/I2SClocklessVirtualLedDriver (D0 and S3)
     class VirtualDriverESP32D0: public VirtualDriver, public LedsDriverESP32D0 {
     protected:
         const int deviceClockIndex[2] = {I2S0O_BCK_OUT_IDX, I2S1O_BCK_OUT_IDX};
@@ -258,13 +243,14 @@ typedef union {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
     //specific for ESP32S3 devices!! (Physical and Virtual)
-    class LedsDriverESP32S3: virtual public LedsDriver { //abstract class !
+    class LedsDriverESP32S3: virtual public LedsDriver { //virtual class !
+        //nothing yet
     };
 
     #include "esp_lcd_panel_io.h" // for esp_lcd_panel_io_handle_t etc
 
     //https://github.com/hpwit/I2SClockLessLedDriveresp32s3 (or FastLED!, taken from FastLED!)
-    class PhysicalDriverESP32S3: public LedsDriverESP32S3, public PhysicalDriver {
+    class PhysicalDriverESP32S3: public PhysicalDriver, public LedsDriverESP32S3 {
 
         uint16_t *buffers[2]; //containing the 2 led_output buffers, set in init, used in transpose and show
         int currentframe; //index in buffers, toggling between 0 and 1
@@ -272,6 +258,7 @@ typedef union {
         void setPins() override; // doing nothing ATM
         void i2sInit() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::initLed() 
         void initDMABuffers() override; // Physical specific, currently does I2SClocklessLedDriveresp32S3::__initLed()
+        //allocateDMABuffer not needed here
 
         //used in show
         void transposeAll(uint16_t *ledoutput);
@@ -283,7 +270,7 @@ typedef union {
 
         void show() override;
     };
-    //https://github.com/hpwit/I2SClocklessVirtualLedDriver (S3 and D0)
+    //https://github.com/hpwit/I2SClocklessVirtualLedDriver (D0 and S3)
     #include "esp_private/gdma.h" // gdma_channel_handle_t and gdma_channel_alloc_config_t
     class VirtualDriverESP32S3: public VirtualDriver, public LedsDriverESP32S3 {
         uint8_t signalsID[16] = {LCD_DATA_OUT0_IDX, LCD_DATA_OUT1_IDX, LCD_DATA_OUT2_IDX, LCD_DATA_OUT3_IDX, LCD_DATA_OUT4_IDX, LCD_DATA_OUT5_IDX, LCD_DATA_OUT6_IDX, LCD_DATA_OUT7_IDX, LCD_DATA_OUT8_IDX, LCD_DATA_OUT9_IDX, LCD_DATA_OUT10_IDX, LCD_DATA_OUT11_IDX, LCD_DATA_OUT12_IDX, LCD_DATA_OUT13_IDX, LCD_DATA_OUT14_IDX, LCD_DATA_OUT15_IDX};
@@ -291,7 +278,7 @@ typedef union {
 
         gdma_channel_handle_t dma_chan; //@yves, removed static
         static bool IRAM_ATTR LedDriverinterruptHandler(gdma_channel_handle_t dma_chan, gdma_event_data_t *event_data, void *user_data) {
-            //todo
+            //to do
             return false;
         }
         void i2sInit() override; // Virtual specific
@@ -306,7 +293,7 @@ typedef union {
 
 #ifdef CONFIG_IDF_TARGET_ESP32P4
     //specific for ESP32P4 devices!! (Physical and Virtual)
-    class LedsDriverESP32P4: virtual public LedsDriver { //abstract class !
+    class LedsDriverESP32P4: virtual public LedsDriver { //virtual class !
     };
 
     class PhysicalDriverESP32P4: public PhysicalDriver, public LedsDriverESP32P4 {

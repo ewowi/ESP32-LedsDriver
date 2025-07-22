@@ -29,8 +29,9 @@ This has a number of advantages:
 * Allow for **new drivers e.g. physical and virtual for ESP32-P4** without creating too many repo's
 * This library is setup as a **PlatformIO library**, allowing for easy compilation in VS Code.
 * Currently this repo is **not depending on FastLED**, e.g. no CRGB struct or leds array, just uint8_t. Not sure if this is an advantage but it sounds okay-ish
+* **Specific classes for specific boards**, minimizing the number of #ifdef CONFIG_IDF_TARGET_ESP32 calls which makes the code more readable.
 
-Note: normal ESP32 board are called ESP32-D0 / ESP32D0 in this repo to distinguish it from other boards like ESP32-S3, ESP32-P4 etc. ESP32D0 covers both esp32dev and esp-wrover-kit. esp-wrover-kit is included as it is a normal ESP32 with PSRAM, making it an excellent candidate for driving lots of LEDs as the LEDs buffer is stored in PSRAM. 
+Note: normal ESP32 board are called **ESP32-D0 / ESP32D0** in this repo to distinguish it from other boards like ESP32-S3, ESP32-P4 etc. ESP32D0 covers both esp32dev and esp-wrover-kit. esp-wrover-kit is included as it is a normal ESP32 with PSRAM, making it an excellent candidate for driving lots of LEDs as the LEDs buffer is stored in PSRAM. 
 
 Definition:
 
@@ -112,9 +113,22 @@ Future
 
 ## Code
 
-### 🚧
+### How to read the code
 
-* LedsDriver (abstract)
+[ESP32-LedsDriver.h](https://github.com/ewowi/ESP32-LedsDriver/blob/main/src/ESP32-LedsDriver.h) is the main 'orchestrator' file. It contains the definition for all driver classes:
+
+ * Class **LedsDriver** which provides the general interface for all driver classes. Most important is initLeds() and show(). All other classes inherit these functions. A more technical example is transpose16x1_noinline2() which is also used by all classes. 
+* LedsDriver has 2 **type subclasses**: **PhysicalDriver** and **VirtualDriver** which provides functionality for all boards. PhysicalDriver is empty at the moment. VirtualDriver contains latchPin, clockPin and clockSpeed functions and variables and virtual specific functions like initDMABuffersVirtual().
+* LedsDriver has 3 **board subclasses**: **LedsDriverESP32D0**, **LedsDriverESP32S3** and **LedsDriverESP32P4**. They define the specifics for a board: currently only LedsDriverESP32D0 contains specifics: setPinsD0(), i2sInitD0(), i2sStop(), loadAndTranspose() and LedDriverinterruptHandler(). LedsDriverESP32S3 is empty as there is a specific implementation for Physical S3, and Virtual S3 still needs to be done.
+* Each specific driver combines one of the type subclasses with one of the board subclasses (multiple inheritance). E.g. class PhysicalDriverESP32D0 uses PhysicalDriver and LedsDriverESP32D0 and completes the driver functionality e.g.:
+    * setPins()
+    * i2sInit()
+    * initDMABuffers()
+    * i2sStart()
+    * show()
+    See Definition above for the 6 drivers which are currently in place
+
+* LedsDriver (virtual)
     * initLeds()
         * virtual setPins()
         * virtual i2sInit();
@@ -127,7 +141,7 @@ Future
     * LedsDriverESP32D0
         * PhysicalDriverESP32D0
             * setPins() 60%
-            * i2sInit() 80% //todo LedDriverinterruptHandler implementation
+            * i2sInit() 80% //to do LedDriverinterruptHandler implementation
             * initDMABuffers() 100%
             * allocateDMABuffer() 80% // not for FULL_DMA_BUFFER
             * putdefaultones() 100%
@@ -150,7 +164,7 @@ Future
             * show() 80%
         * VirtualDriverESP32S3
             * setPins() 60%
-            * i2sInit() 80%  //todo LedDriverinterruptHandler implementation
+            * i2sInit() 80%  //to do LedDriverinterruptHandler implementation
             * initDMABuffers() 100%
             * allocateDMABuffer() 100%
             * putdefaultlatch() 100%
@@ -180,7 +194,7 @@ Run Physical or Virtual driver for all defined boards:
 | **S3** | LedsDriverESP32S3* | PhysicalDriverESP32S3 | VirtualDriverESP32S3 |
 | **P4** | LedsDriverESP32P4* | PhysicalDriverESP32P4 | VirtualDriverESP32P4 |
 
-*: Abstract classes
+*: Virtual classes
 
 ### Class usage
 

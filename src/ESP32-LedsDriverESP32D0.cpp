@@ -9,6 +9,8 @@
     @license   For non MIT usage, commercial licenses must be purchased. Contact us for more information.
 **/
 
+//in this .cpp only functions specific for D0, both Physical and Virtual: LedsDriverESP32D0, PhysicalDriverESP32D0 and VirtualDriverESP32D0
+
 #ifdef CONFIG_IDF_TARGET_ESP32
 
 #include "ESP32-LedsDriver.h"
@@ -28,6 +30,25 @@ void LedsDriverESP32D0::setPinsD0() {
         gpio_set_direction((gpio_num_t)pinConfig[i].gpio, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
         gpio_matrix_out(pinConfig[i].gpio, deviceBaseIndex[I2S_DEVICE] + i + 8, false, false);
     }
+}
+
+void LedsDriverESP32D0::i2sReset() {
+    const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
+    (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
+    (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
+    const uint32_t conf_reset_flags = I2S_RX_RESET_M | I2S_RX_FIFO_RESET_M | I2S_TX_RESET_M | I2S_TX_FIFO_RESET_M;
+    (&I2S0)->conf.val |= conf_reset_flags;
+    (&I2S0)->conf.val &= ~conf_reset_flags;
+}
+
+void LedsDriverESP32D0::i2sReset_DMA() {
+    (&I2S0)->lc_conf.out_rst = 1;
+    (&I2S0)->lc_conf.out_rst = 0;
+}
+
+void LedsDriverESP32D0::i2sReset_FIFO() {
+    (&I2S0)->conf.tx_fifo_reset = 1;
+    (&I2S0)->conf.tx_fifo_reset = 0;
 }
 
 #include "esp_private/periph_ctrl.h" // for periph_module_enable (// #include "driver/periph_ctrl.h") deprecated
@@ -82,7 +103,7 @@ void LedsDriverESP32D0::i2sInitD0() {
     }
 }
 
-void LedsDriverESP32D0::i2sStop( LedsDriverESP32D0 *cont) {
+void LedsDriverESP32D0::i2sStop(LedsDriverESP32D0 *cont) {
 
     esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
     
@@ -573,7 +594,9 @@ void VirtualDriverESP32D0::i2sInit() {
 }
 
 void VirtualDriverESP32D0::initDMABuffers() {
-    initDMABuffersVirtual(); // for all Virtual drivers, S3 and D0
+    initDMABuffersVirtual(); // for all Virtual drivers, D0 and S3
+
+    //nothing D0 specific (S3 has specific code)
 }
 
 LedDriverDMABuffer *VirtualDriverESP32D0::allocateDMABuffer(int bytes) {
@@ -602,7 +625,7 @@ void VirtualDriverESP32D0::putdefaultlatch(uint16_t *buffer) {
 }
 
 void VirtualDriverESP32D0::putdefaultones(uint16_t *buffer) {
-    putdefaultonesVirtual(buffer); // for all Virtual drivers, S3 and D0
+    putdefaultonesVirtual(buffer); // for all Virtual drivers, D0 and S3
 
     //virtual D0 specific: 
     uint16_t mas = 0xFFFF & (~(0xffff << (numPins)));
