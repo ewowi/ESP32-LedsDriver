@@ -38,10 +38,11 @@ struct PinConfig { //default 256 LEDs on pin 2 (see channelsPerLed to get total 
     typedef dma_descriptor_t LedDriverDMABuffer; // modern architectures.
 #endif
 
+#define MAX_PINS 20 //20 as the max for now (Virtual has 1 pin for 8 led pins, 15 max)
 class LedsDriver {
 protected:
     uint8_t *leds;
-    PinConfig *pinConfig; //assuming global storage!
+    PinConfig pinConfig[MAX_PINS];
     uint8_t numPins;
     uint8_t channelsPerLed = 3;
     uint8_t offsetRed = 1;
@@ -181,7 +182,7 @@ typedef union {
         void i2sInitD0();
 
         intr_handle_t _gI2SClocklessDriver_intr_handle; //i2sInit / esp_intr_alloc, start and stop in i2sStart / esp_intr_enable and i2sStop / esp_intr_disable
-        volatile bool __enableDriver= true; //checked in LedDriverinterruptHandler and showPixels (Yves: but never set too false!!!)
+        volatile bool __enableDriver = true; //checked in LedDriverinterruptHandler and showPixels (Yves: but never set too false!!!)
         volatile bool framesync = false; //set true by i2sStart, toggled by LedDriverinterruptHandler
         volatile bool wasWaitingtofinish = false; //set by showPixels and waitDisplay, checked by i2sStop
         volatile bool transpose = false; //set true by showPixels, checked by LedDriverinterruptHandler and loadAndTranspose

@@ -13,7 +13,11 @@
 
 void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed, uint8_t offsetRed, uint8_t offsetGreen, uint8_t offsetBlue, uint8_t offsetWhite) {
     this->leds = leds;
-    this->pinConfig = pinConfig;
+    if (numPins > MAX_PINS) numPins = MAX_PINS;
+    for (int i = 0; i<numPins; i++) {
+        this->pinConfig[i].gpio = pinConfig[i].gpio;
+        this->pinConfig[i].nrOfLeds = pinConfig[i].nrOfLeds;
+    }
     this->numPins = numPins;
     this->channelsPerLed = channelsPerLed;
     this->offsetRed = offsetRed;
