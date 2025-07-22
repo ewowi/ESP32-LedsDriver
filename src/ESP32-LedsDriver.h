@@ -80,6 +80,7 @@ public:
     //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
     //color arrangements: supports RGB and RGBW but also exotic setups like LED Curtains where some have 6 channels per LEDS where only 3 channels are used.
     void initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed = 3, uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
+    bool initLedsDone = false;
 
     void setBrightness(uint8_t brightness);
     uint8_t getBrightness();
@@ -262,12 +263,10 @@ typedef union {
 
         //used in show
         void transposeAll(uint16_t *ledoutput);
-
-    public:
         //for initLed and show:
-        // dirty hack for the time being so led_io_handle can be checked to see if init has been done (must be moved back to private)
         esp_lcd_panel_io_handle_t led_io_handle = NULL; //set by init, used in show
 
+    public:
         void show() override;
     };
     //https://github.com/hpwit/I2SClocklessVirtualLedDriver (D0 and S3)

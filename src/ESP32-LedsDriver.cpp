@@ -33,6 +33,8 @@ void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, u
     setPins();
     i2sInit();
     initDMABuffers();
+
+    initLedsDone = true;
 }
 
 void LedsDriver::setBrightness(uint8_t brightness) {
@@ -109,7 +111,7 @@ void LedsDriver::putdefaultones(uint16_t *buffer) {
 }
 
 void LedsDriver::show() {
-    // to do
+    ESP_LOGW(TAG, "This function should be overriden for the specific ESP32 you are compiling for!");
 }
 
 void LedsDriver::setPixel(uint16_t ledNr, uint8_t red, uint8_t green, uint8_t blue, uint8_t white) {
