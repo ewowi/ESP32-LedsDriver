@@ -25,6 +25,7 @@
 #include "rom/gpio.h"
 
 void LedsDriverESP32D0::setPinsD0() {
+    ESP_LOGD(TAG, "nP:%d", numPins);
     for (int i = 0; i < numPins; i++) {
         PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[pinConfig[i].gpio], PIN_FUNC_GPIO);
         gpio_set_direction((gpio_num_t)pinConfig[i].gpio, (gpio_mode_t)GPIO_MODE_DEF_OUTPUT);
@@ -33,6 +34,7 @@ void LedsDriverESP32D0::setPinsD0() {
 }
 
 void LedsDriverESP32D0::i2sReset() {
+    ESP_LOGD(TAG, "");
     const unsigned long lc_conf_reset_flags = I2S_IN_RST_M | I2S_OUT_RST_M | I2S_AHBM_RST_M | I2S_AHBM_FIFO_RST_M;
     (&I2S0)->lc_conf.val |= lc_conf_reset_flags;
     (&I2S0)->lc_conf.val &= ~lc_conf_reset_flags;
@@ -42,26 +44,26 @@ void LedsDriverESP32D0::i2sReset() {
 }
 
 void LedsDriverESP32D0::i2sReset_DMA() {
+    ESP_LOGD(TAG, "");
     (&I2S0)->lc_conf.out_rst = 1;
     (&I2S0)->lc_conf.out_rst = 0;
 }
 
 void LedsDriverESP32D0::i2sReset_FIFO() {
+    ESP_LOGD(TAG, "");
     (&I2S0)->conf.tx_fifo_reset = 1;
     (&I2S0)->conf.tx_fifo_reset = 0;
 }
 
 #include "esp_private/periph_ctrl.h" // for periph_module_enable (// #include "driver/periph_ctrl.h") deprecated
 void LedsDriverESP32D0::i2sInitD0() {
-    if (I2S_DEVICE == 0)
-    {
+    ESP_LOGD(TAG, "");
+    if (I2S_DEVICE == 0) {
         i2s = &I2S0;
         periph_module_enable(PERIPH_I2S0_MODULE);
         interruptSource = ETS_I2S0_INTR_SOURCE;
         i2s_base_pin_index = I2S0O_DATA_OUT0_IDX;
-    }
-    else
-    {
+    } else {
         i2s = &I2S1;
         periph_module_enable(PERIPH_I2S1_MODULE);
         interruptSource = ETS_I2S1_INTR_SOURCE;
@@ -89,21 +91,15 @@ void LedsDriverESP32D0::i2sInitD0() {
     // -- Create a semaphore to block execution until all the controllers are done
 
     if (LedDriver_sem == NULL)
-    {
         LedDriver_sem = xSemaphoreCreateBinary();
-    }
-
     if (LedDriver_semSync == NULL)
-    {
         LedDriver_semSync = xSemaphoreCreateBinary();
-    }
     if (LedDriver_semDisp == NULL)
-    {
         LedDriver_semDisp = xSemaphoreCreateBinary();
-    }
 }
 
 void LedsDriverESP32D0::i2sStop(LedsDriverESP32D0 *cont) {
+    ESP_LOGD(TAG, "");
 
     esp_intr_disable(cont->_gI2SClocklessDriver_intr_handle);
     
@@ -122,6 +118,7 @@ void LedsDriverESP32D0::i2sStop(LedsDriverESP32D0 *cont) {
 }
 
 void LedsDriverESP32D0::loadAndTranspose(LedsDriverESP32D0 *driver) {
+    ESP_LOGD(TAG, "");
     //cont->leds, cont->num_strips, (uint16_t *)cont->DMABuffersTampon[cont->dmaBufferActive]->buffer, cont->ledToDisplay, cont->__green_map, cont->__red_map, cont->__blue_map, cont->__white_map, cont->nb_components, cont->p_g, cont->p_r, cont->p_b);
     Lines secondPixel[driver->channelsPerLed];
     uint16_t *buffer;
@@ -239,6 +236,7 @@ void LedsDriverESP32D0::LedDriverinterruptHandler(void *arg) {
 }
 
 void PhysicalDriverESP32D0::startDriver() {
+    ESP_LOGD(TAG, "");
     // from void __initled(uint8_t *leds, int *Pinsq, int num_strips, int num_led_per_strip)
 
     _gammab = 1;
@@ -261,7 +259,7 @@ void PhysicalDriverESP32D0::startDriver() {
     // this->num_strips = num_strips;
     // this->dmaBufferCount = dmaBufferCount; // ewowi: not used for anything...
 
-    ESP_LOGV(TAG,"xdelay:%d",__delay);
+    // ESP_LOGD(TAG,"xdelay:%d",__delay); //ewowi: calculated live in waitDisplay (to do here)
     #if HARDWARESPRITES == 1
         //Serial.println(NUM_LEDS_PER_STRIP * NBIS2SERIALPINS * 8);
         target = (uint16_t *)malloc(maxNrOfLedsPerPin * numPins * 2 + 2);
@@ -307,6 +305,7 @@ void PhysicalDriverESP32D0::startDriver() {
 }
 
 LedDriverDMABuffer *PhysicalDriverESP32D0::allocateDMABuffer(int bytes) {
+    ESP_LOGD(TAG, "b:%d", bytes);
     LedDriverDMABuffer *b = (LedDriverDMABuffer *)heap_caps_malloc(sizeof(LedDriverDMABuffer), MALLOC_CAP_DMA);
 
     if (!b) {
@@ -336,10 +335,12 @@ LedDriverDMABuffer *PhysicalDriverESP32D0::allocateDMABuffer(int bytes) {
 }
 
 void PhysicalDriverESP32D0::setPins() {
+    ESP_LOGD(TAG, "");
     setPinsD0();
 }
 
 void PhysicalDriverESP32D0::i2sInit() {
+    ESP_LOGD(TAG, "");
     i2sInitD0();
 
     //Physical specific. @Yves, check PhysicalDriverESP32D0::i2sInit as they look pretty similar. Combine or parametrize?
@@ -350,7 +351,6 @@ void PhysicalDriverESP32D0::i2sInit() {
     i2s->clkm_conf.clkm_div_a = 3;    // CLOCK_DIVIDER_A;
     i2s->clkm_conf.clkm_div_b = 1;    //CLOCK_DIVIDER_B;
     i2s->clkm_conf.clkm_div_num = 33; //CLOCK_DIVIDER_N;
-
 
     i2s->fifo_conf.val = 0;
     i2s->fifo_conf.tx_fifo_mod_force_en = 1;
@@ -377,6 +377,7 @@ void PhysicalDriverESP32D0::i2sInit() {
 }
 
 void PhysicalDriverESP32D0::initDMABuffers() {
+    ESP_LOGD(TAG, "cPL:%d", channelsPerLed);
     DMABuffersTampon[0] = allocateDMABuffer(channelsPerLed * 8 * 2 * 3); //the buffers for the
     DMABuffersTampon[1] = allocateDMABuffer(channelsPerLed * 8 * 2 * 3);
     DMABuffersTampon[2] = allocateDMABuffer(channelsPerLed * 8 * 2 * 3);
@@ -387,6 +388,7 @@ void PhysicalDriverESP32D0::initDMABuffers() {
 }
 
 void PhysicalDriverESP32D0::putdefaultones(uint16_t *buffer) {
+    ESP_LOGD(TAG, "");
     /*order to push the data to the pins
     0:D7
     1:1
@@ -420,21 +422,22 @@ void PhysicalDriverESP32D0::putdefaultones(uint16_t *buffer) {
 }
 
 void PhysicalDriverESP32D0::waitDisplay() {
-    if (isDisplaying == true ) {
+    if (isDisplaying) {
         wasWaitingtofinish = true;
         ESP_LOGD(TAG, "already displaying... wait");
         if(LedDriver_waitDisp==NULL) {
             LedDriver_waitDisp = xSemaphoreCreateCounting(10,0);
         }
 
-        uint32_t __delay = (((maxNrOfLedsPerPin * 125 * 8 * channelsPerLed) /100000) +1 );
+        uint32_t __delay = (((maxNrOfLedsPerPin * 125 * 8 * channelsPerLed) /100000) + 1);
         const TickType_t xDelay = __delay ;
-        xSemaphoreTake(LedDriver_waitDisp,xDelay);   
+        xSemaphoreTake(LedDriver_waitDisp, xDelay);   
     }
     isDisplaying=true;
 }
 
 void PhysicalDriverESP32D0::i2sStart(LedDriverDMABuffer *startBuffer) {
+    ESP_LOGD(TAG, "");
 
     i2sReset();
     framesync = false;
@@ -484,6 +487,7 @@ void PhysicalDriverESP32D0::__showPixels() {
         ESP_LOGE(TAG, "no leds buffer defined");
         return;
     }
+
     ledToDisplay = 0;
     transpose = true;
     DMABuffersTampon[0]->descriptor.qe.stqe_next = &(DMABuffersTampon[1]->descriptor);

@@ -21,6 +21,8 @@ void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, u
     this->offsetBlue = offsetBlue;
     this->offsetWhite = offsetWhite;
 
+    // total_leds=0; not used yet
+
     maxNrOfLedsPerPin = 0;
     for (size_t pin = 0; pin < numPins; pin++) {
         ESP_LOGD(TAG, "gpio:%d #:%d", pinConfig[pin].gpio, pinConfig[pin].nrOfLeds);
