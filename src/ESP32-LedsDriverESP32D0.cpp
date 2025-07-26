@@ -520,6 +520,13 @@ void PhysicalDriverESP32D0::show() {
     // leds=saveleds; //ewowi: looks not needed
     // _offsetDisplay=_defaultOffsetDisplay; //ewowi: not implemented yet
     __displayMode=WAIT; //ewowi: default for now
+
+    // if NO_WAIT
+    // [ 12383][D][ESP32-LedsDriverESP32D0.cpp:427] waitDisplay(): [🐸] already displaying... wait
+    // [ 12395][D][ESP32-LedsDriverESP32D0.cpp:121] loadAndTranspose(): [🐸] 
+    // [ 12402][D][ESP32-LedsDriverESP32D0.cpp:440] i2sStart(): [🐸] 
+    // [ 12409][D][ESP32-LedsDriverESP32D0.cpp:37] i2sReset(): [🐸] 
+
     __showPixels();
 }
 

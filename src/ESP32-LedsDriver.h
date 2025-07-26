@@ -57,11 +57,6 @@ protected:
     uint8_t correctionBlue = UINT8_MAX;
     uint8_t correctionWhite = UINT8_MAX;
 
-    //used by setBrightness and setColorCorrection, but 1024 bytes of extra data!!!
-    uint8_t __green_map[256];
-    uint8_t __blue_map[256];
-    uint8_t __red_map[256];
-    uint8_t __white_map[256];
     float _gammar, _gammab, _gammag, _gammaw;
 
     //override in derived classes, called by initLeds
@@ -77,6 +72,13 @@ protected:
 
     void transpose16x1_noinline2(unsigned char *A, uint16_t *B); // will be used by all boards, see loadAndTranspose and transposeAll
 public:
+
+    //used by setBrightness and setColorCorrection, but 1024 bytes of extra data!!!
+    //made public as other drivers may use this (e.g. MoonLight Art-Net)    
+    uint8_t __green_map[256];
+    uint8_t __blue_map[256];
+    uint8_t __red_map[256];
+    uint8_t __white_map[256];
 
     //initialize the leds array, pins, ledsPerPin, number of pins and the color arrangement of LEDs
     //color arrangements: supports RGB and RGBW but also exotic setups like LED Curtains where some have 6 channels per LEDS where only 3 channels are used.
