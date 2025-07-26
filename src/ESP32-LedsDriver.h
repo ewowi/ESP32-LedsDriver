@@ -85,8 +85,8 @@ public:
     void initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, uint8_t channelsPerLed = 3, uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
     bool initLedsDone = false;
 
-    //setChannels can be called runtime to change the settings
-    void setChannels(uint8_t channelsPerLed = 3, uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
+    //setOffsets can be called runtime to change the settings
+    void setOffsets(uint8_t offsetRed = 1, uint8_t offsetGreen = 0, uint8_t offsetBlue = 2, uint8_t offsetWhite = UINT8_MAX);
 
     void setBrightness(uint8_t brightness);
     uint8_t getBrightness();

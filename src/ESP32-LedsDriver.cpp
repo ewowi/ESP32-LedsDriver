@@ -43,8 +43,7 @@ void LedsDriver::initLeds(uint8_t *leds, PinConfig *pinConfig, size_t numPins, u
     initLedsDone = true;
 }
 
-void LedsDriver::setChannels(uint8_t channelsPerLed, uint8_t offsetRed, uint8_t offsetGreen, uint8_t offsetBlue, uint8_t offsetWhite) {
-    this->channelsPerLed = channelsPerLed;
+void LedsDriver::setOffsets(uint8_t offsetRed, uint8_t offsetGreen, uint8_t offsetBlue, uint8_t offsetWhite) {
     this->offsetRed = offsetRed;
     this->offsetGreen = offsetGreen;
     this->offsetBlue = offsetBlue;
