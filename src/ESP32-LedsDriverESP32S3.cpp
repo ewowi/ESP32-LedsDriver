@@ -247,7 +247,11 @@ void PhysicalDriverESP32S3::show() {
         isWaiting = true;
         if (I2SClocklessLedDriverS3_sem == NULL)
             I2SClocklessLedDriverS3_sem = xSemaphoreCreateBinary();
-        xSemaphoreTake(I2SClocklessLedDriverS3_sem, portMAX_DELAY);
+        //adding semaphore wait too long logging
+        if (xSemaphoreTake(I2SClocklessLedDriverS3_sem, pdMS_TO_TICKS(100))==pdFALSE) {
+            ESP_LOGE(TAG, "I2SClocklessLedDriverS3_sem wait too long");
+            xSemaphoreTake(I2SClocklessLedDriverS3_sem, portMAX_DELAY);
+        }
     }
     isDisplaying = true;
 

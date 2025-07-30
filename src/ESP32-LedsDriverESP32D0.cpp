@@ -431,7 +431,7 @@ void PhysicalDriverESP32D0::waitDisplay() {
 
         uint32_t __delay = (((maxNrOfLedsPerPin * 125 * 8 * channelsPerLed) /100000) + 1);
         const TickType_t xDelay = __delay ;
-        xSemaphoreTake(LedDriver_waitDisp, xDelay);   
+        xSemaphoreTake(LedDriver_waitDisp, xDelay); //this waits only until delay so no issue
     }
     isDisplaying=true;
 }
@@ -506,7 +506,11 @@ void PhysicalDriverESP32D0::__showPixels() {
         isWaiting = true;
         if (LedDriver_sem==NULL)
             LedDriver_sem=xSemaphoreCreateBinary();
-        xSemaphoreTake(LedDriver_sem, portMAX_DELAY);
+        //adding semaphore wait too long logging
+        if (xSemaphoreTake(LedDriver_sem, pdMS_TO_TICKS(100))==pdFALSE) {
+            ESP_LOGE(TAG, "LedDriver_sem wait too long");
+            xSemaphoreTake(LedDriver_sem, portMAX_DELAY);
+        }
     } else {
         isWaiting = false;
         isDisplaying = true;
